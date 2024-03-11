@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+
 
 class RegistrationPage extends StatefulWidget {
   @override
@@ -9,17 +12,23 @@ class _RegistrationPageState extends State<RegistrationPage> {
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
 
-  void _register() {
-    // Implement your registration logic here
-    String email = _emailController.text;
-    String password = _passwordController.text;
+void _register() async {
+  String email = _emailController.text;
+  String password = _passwordController.text;
 
-    // For now, let's just print the email and password
-    print('Email: $email');
-    print('Password: $password');
-
-    // You can add Firebase registration logic here
+  try {
+    UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    // Registration successful, you can now navigate to another page or perform other actions.
+    print('Registration successful: ${userCredential.user}');
+  } catch (e) {
+    // Registration failed, handle the error appropriately.
+    print('Registration failed: $e');
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
