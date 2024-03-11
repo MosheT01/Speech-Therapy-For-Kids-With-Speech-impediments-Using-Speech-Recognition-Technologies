@@ -44,7 +44,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC31BJJ3rk64QtJERsUpr_ZV29qfMjDx20',
+    apiKey: 'AIzaSyBiRtZvtbpO9_qw5UkJkUGDlJrOy0IA_Ms',
     appId: '1:474954764415:web:b619094c282c6039cf6f4a',
     messagingSenderId: '474954764415',
     projectId: 'speechtherapyapp-88a94',
@@ -54,7 +54,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB5MPO6d4ZFTW4tFcrkRa50IHJzb5K4eEA',
+    apiKey: 'AIzaSyDSm-gqbbd7ZoHItIND3wIoJT9WGSViN8I',
     appId: '1:474954764415:android:fd107191eeb8a016cf6f4a',
     messagingSenderId: '474954764415',
     projectId: 'speechtherapyapp-88a94',
@@ -62,7 +62,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDZcGx48qmyuvyyzTrnAQ3qu6O3LqZphEI',
+    apiKey: 'AIzaSyC4IobkBHuqw6t1lP0KGlwkKaLAWldBvmA',
     appId: '1:474954764415:ios:75a2c58e108a525ecf6f4a',
     messagingSenderId: '474954764415',
     projectId: 'speechtherapyapp-88a94',
@@ -71,7 +71,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDZcGx48qmyuvyyzTrnAQ3qu6O3LqZphEI',
+    apiKey: 'AIzaSyC4IobkBHuqw6t1lP0KGlwkKaLAWldBvmA',
     appId: '1:474954764415:ios:161ae96b1df6db4ccf6f4a',
     messagingSenderId: '474954764415',
     projectId: 'speechtherapyapp-88a94',

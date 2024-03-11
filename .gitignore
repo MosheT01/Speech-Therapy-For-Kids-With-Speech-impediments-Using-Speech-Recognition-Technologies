@@ -4,3 +4,5 @@ speech_therapy/lib/firebase_options.dart
 speech_therapy/ios/Runner/GoogleService-Info.plist
 speech_therapy/ios/.gitignore
 speech_therapy/ios/Runner/GoogleService-Info.plist
+speech_therapy/ios/Runner/GoogleService-Info.plist
+speech_therapy/lib/firebase_options.dart
