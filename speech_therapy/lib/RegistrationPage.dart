@@ -25,7 +25,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
       );
       // Registration successful, you can now navigate to another page or perform other actions.
       print('Registration successful: ${userCredential.user}');
-      MaterialPageRoute(builder: (context) => TherapistHomePage());
+      Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => TherapistHomePage()),
+    );
     } catch (e) {
       // Registration failed, handle the error appropriately.
       print('Registration failed: $e');
