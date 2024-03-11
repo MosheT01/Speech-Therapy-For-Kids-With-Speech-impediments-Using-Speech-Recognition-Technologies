@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "474954764415",
+    "project_id": "speechtherapyapp-88a94",
+    "storage_bucket": "speechtherapyapp-88a94.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474954764415:android:fd107191eeb8a016cf6f4a",
+        "android_client_info": {
+          "package_name": "com.example.speech_therapy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5MPO6d4ZFTW4tFcrkRa50IHJzb5K4eEA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

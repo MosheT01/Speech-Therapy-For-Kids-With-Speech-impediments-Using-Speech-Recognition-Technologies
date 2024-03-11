@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'therapist_home_page.dart'; // Import the therapist homepage file
+import 'registrationPage.dart'; // Import the registration page file
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  // Ensure Firebase initialization completes before running the app
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(LoginApp());
 }
 
@@ -9,7 +17,7 @@ class LoginApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Login App',
+      title: 'Speech Therapy',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -47,6 +55,14 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _navigateToRegistration() {
+    // Navigate to the registration page
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => RegistrationPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,6 +92,17 @@ class _LoginPageState extends State<LoginPage> {
             ElevatedButton(
               onPressed: _login,
               child: Text('Login'),
+            ),
+            SizedBox(height: 10.0), // Add some spacing
+            GestureDetector(
+              onTap: _navigateToRegistration,
+              child: Text(
+                "Don't have an account? Register",
+                style: TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
           ],
         ),

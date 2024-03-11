@@ -1,0 +1,6 @@
+https://firebase.google.com/docs/flutter/setup?platform=android how to set up firbase to android
+https://firebase.google.com/docs/cli#install-cli-windows how to set up firbase client on pc
+web       1:474954764415:web:b619094c282c6039cf6f4a
+android   1:474954764415:android:fd107191eeb8a016cf6f4a
+ios       1:474954764415:ios:75a2c58e108a525ecf6f4a
+macos     1:474954764415:ios:161ae96b1df6db4ccf6f4a
