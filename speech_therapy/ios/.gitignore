@@ -28,6 +28,9 @@ ServiceDefinitions.json
 Runner/GeneratedPluginRegistrant.*
 firebase_app_id_file.json
 GoogleService-Info.plist
+firebase_options.dart
+GoogleService-Info.plist
+
 
 GoogleService-Info.plist
 
