@@ -3,6 +3,8 @@ import 'therapist_home_page.dart'; // Import the therapist homepage file
 import 'registrationPage.dart'; // Import the registration page file
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:flutter/gestures.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   // Ensure Firebase initialization completes before running the app
@@ -34,26 +36,26 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   TextEditingController _usernameController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordVisible = false; // Added for password visibility toggle
 
-  void _login() {
-    // Implement your login logic here
-    String username = _usernameController.text;
-    String password = _passwordController.text;
-
-    // For now, let's just print the username and password
-    print('Username: $username');
-    print('Password: $password');
-
-    // Check if the username and password are correct
-    // For demonstration purposes, assume successful login
-    if (username == 'therapist' && password == 'password') {
-      // Navigate to the therapist homepage
+  void _login() async {
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _usernameController.text,
+        password: _passwordController.text,
+      );
+      
+      // If login is successful, navigate to the therapist homepage
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => TherapistHomePage()),
       );
+    } catch (e) {
+      print('Login failed: $e');
+      // Handle login failure here
     }
   }
+
 
   void _navigateToRegistration() {
     // Navigate to the registration page
@@ -77,15 +79,27 @@ class _LoginPageState extends State<LoginPage> {
             TextField(
               controller: _usernameController,
               decoration: InputDecoration(
-                labelText: 'Username',
+                labelText: 'Email',
+                hintText: 'example@mail.com', // Add preview text here
               ),
             ),
             SizedBox(height: 20.0),
             TextField(
               controller: _passwordController,
-              obscureText: true,
+              obscureText: !_isPasswordVisible, // Toggle the obscuring of text
               decoration: InputDecoration(
                 labelText: 'Password',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
               ),
             ),
             SizedBox(height: 20.0),
@@ -96,11 +110,21 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(height: 10.0), // Add some spacing
             GestureDetector(
               onTap: _navigateToRegistration,
-              child: Text(
-                "Don't have an account? Register",
-                style: TextStyle(
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
+              child: Text.rich(
+                TextSpan(
+                  text: "Don't have an account? ",
+                  style: TextStyle(
+                    color: Colors.black, // Change the color of the regular text
+                  ),
+                  children: <TextSpan>[
+                    TextSpan(
+                      text: "Register Here!",
+                      style: TextStyle(
+                        color: Colors.blue, // Change the color of the blue link
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
