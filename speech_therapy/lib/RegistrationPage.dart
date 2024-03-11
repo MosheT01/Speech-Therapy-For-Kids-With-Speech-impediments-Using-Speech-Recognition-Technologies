@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+//This Page Works!!
+////TODO Make it Redirect the user,make it have a user type(therapsit/parent/child) 
 
 
 class RegistrationPage extends StatefulWidget {
