@@ -5,3 +5,5 @@ speech_therapy/ios/Runner/GoogleService-Info.plist
 speech_therapy/ios/Runner/GoogleService-Info.plist
 speech_therapy/ios/Runner/GoogleService-Info.plist
 speech_therapy/lib/firebase_options.dart
+speech_therapy/android/app/google-services.json
+speech_therapy/macos/firebase_app_id_file.json

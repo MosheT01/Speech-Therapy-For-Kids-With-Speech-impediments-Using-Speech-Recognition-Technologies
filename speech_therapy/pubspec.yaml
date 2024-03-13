@@ -32,11 +32,14 @@ dependencies:
     sdk: flutter
   firebase_core: ^2.27.0
   firebase_auth: ^4.5.0
-
-
+  firebase_database: ^10.4.10
+  
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.6
+
+  # Specify your databaseURL here
+  # databaseURL: "https://speechtherapyapp-88a94-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 dev_dependencies:
   flutter_test:
@@ -62,5 +65,5 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/therapist_treating_kid.png
+    # assets/therapist_treating_kid.png
     #- assets/speech_therapy_logo.png
