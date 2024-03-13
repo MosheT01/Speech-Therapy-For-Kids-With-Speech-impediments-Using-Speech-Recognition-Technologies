@@ -3,40 +3,42 @@ import 'patient_management_screen.dart'; // Import the patient management screen
 import 'schedule_appointment_screen.dart'; // Import the schedule appointment screen
 
 class TherapistHomePage extends StatelessWidget {
+  const TherapistHomePage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Therapist Home'),
+        title: const Text('Therapist Home'),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            const Text(
               'Welcome, Therapist!',
               style: TextStyle(fontSize: 24.0),
             ),
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
             ElevatedButton(
               onPressed: () {
                 // Navigate to the screen for managing patients
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => PatientManagementScreen()),
+                  MaterialPageRoute(builder: (context) => const PatientManagementScreen()),
                 );
               },
-              child: Text('Manage Patients'),
+              child: const Text('Manage Patients'),
             ),
             ElevatedButton(
               onPressed: () {
                 // Navigate to the screen for scheduling appointments
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => ScheduleAppointmentScreen()),
+                  MaterialPageRoute(builder: (context) => const ScheduleAppointmentScreen()),
                 );
               },
-              child: Text('Schedule Appointment'),
+              child: const Text('Schedule Appointment'),
             ),
             // Add more buttons and functionality as needed
           ],

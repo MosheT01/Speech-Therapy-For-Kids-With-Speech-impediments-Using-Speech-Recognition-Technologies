@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 
-class ScheduleAppointmentScreen extends StatelessWidget {
+class PatientManagementScreen extends StatelessWidget {
+  const PatientManagementScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Schedule Appointment'),
+        title: const Text('Manage Patients'),
       ),
-      body: Center(
+      body: const Center(
         child: Text(
-          'This is the Schedule Appointment Screen',
+          'This is the Patient Management Screen',
           style: TextStyle(fontSize: 20.0),
         ),
       ),
