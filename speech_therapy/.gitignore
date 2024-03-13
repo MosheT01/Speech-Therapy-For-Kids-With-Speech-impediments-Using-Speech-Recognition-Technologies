@@ -43,6 +43,8 @@ app.*.map.json
 /android/app/release
 
 
-#sensitive shit
+
+#sensitive stuff
+
 firebase_options.dart
 GoogleService-Info.plist
