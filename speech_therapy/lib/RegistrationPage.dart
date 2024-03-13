@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 import 'therapist/therapist_home_page.dart'; // Import the therapist homepage file
-
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({Key? key}) : super(key: key);
 
   @override
-  _RegistrationPageState createState() => _RegistrationPageState();
+  RegistrationPageState createState() => RegistrationPageState();
 }
 
-class _RegistrationPageState extends State<RegistrationPage> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _verifyPasswordController =
-      TextEditingController();
+class RegistrationPageState extends State<RegistrationPage> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController verifyPasswordController = TextEditingController();
+final DatabaseReference _userRef = FirebaseDatabase.instance.ref().child('users');
 
-  int _currentStep = 0;
+  int currentStep = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -25,26 +25,37 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         title: const Text('Register'),
       ),
-      body: _currentStep == 3 ?  _buildRegistrationForm():_buildStepper(),
+      body: currentStep == 3 ? buildRegistrationForm() : buildStepper(),
     );
   }
 
-  Widget _buildStepper() {
+  Widget buildStepper() {
     return Stepper(
-      currentStep: _currentStep,
+      currentStep: currentStep,
       onStepContinue: () {
-        if (_currentStep == 3) {
+        if (currentStep == 3) {
           return;
+        } else if (currentStep == 0) {
+          emailIsInUse(emailController.text);
+        } else if (currentStep == 1) {
+          if (isStrongPassword(passwordController.text)) {
+            setState(() {
+              currentStep += 1;
+            });
+          }
+        } else if (currentStep == 2 &&
+            passwordController.text != verifyPasswordController.text) {
+          displayError("The Two Passwords Must Match!");
         } else {
           setState(() {
-            _currentStep += 1;
+            currentStep += 1;
           });
         }
       },
       onStepCancel: () {
-        if (_currentStep > 0) {
+        if (currentStep > 0) {
           setState(() {
-            _currentStep -= 1;
+            currentStep -= 1;
           });
         }
       },
@@ -54,22 +65,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
           content: Column(
             children: [
               TextField(
-                controller: _emailController,
+                controller: emailController,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
-                ),
+                    labelText: 'Email', hintText: "example@email.com"),
               ),
             ],
           ),
-          isActive: _currentStep >= 0,
-          state: _currentStep >= 0 ? StepState.complete : StepState.disabled,
+          isActive: currentStep >= 0,
+          state: currentStep >= 0 ? StepState.complete : StepState.disabled,
         ),
         Step(
           title: const Text('Enter Password'),
           content: Column(
             children: [
               TextField(
-                controller: _passwordController,
+                controller: passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Password',
@@ -77,15 +87,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
               ),
             ],
           ),
-          isActive: _currentStep >= 1,
-          state: _currentStep >= 1 ? StepState.complete : StepState.disabled,
+          isActive: currentStep >= 1,
+          state: currentStep >= 1 ? StepState.complete : StepState.disabled,
         ),
         Step(
           title: const Text('Verify Password'),
           content: Column(
             children: [
               TextField(
-                controller: _verifyPasswordController,
+                controller: verifyPasswordController,
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Verify Password',
@@ -93,35 +103,57 @@ class _RegistrationPageState extends State<RegistrationPage> {
               ),
             ],
           ),
-          isActive: _currentStep >= 2,
-          state: _currentStep >= 2 ? StepState.complete : StepState.disabled,
+          isActive: currentStep >= 2,
+          state: currentStep >= 2 ? StepState.complete : StepState.disabled,
         ),
       ],
     );
   }
 
-  Widget _buildRegistrationForm() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Email: ${_emailController.text}'),
-          const SizedBox(height: 10.0),
-          Text('Password: ${_passwordController.text}'),
-          const SizedBox(height: 20.0),
-          ElevatedButton(
-            onPressed: _register,
-            child: const Text('Register'),
+  Widget buildRegistrationForm() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Card(
+          elevation: 4.0,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Register?',
+                  style: TextStyle(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text('Email: ${emailController.text}'),
+                const SizedBox(height: 10.0),
+                Text('Password: ${passwordController.text}'),
+                const SizedBox(height: 20.0),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: register,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Click To Register!'),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  void _register() async {
-    String email = _emailController.text;
-    String password = _passwordController.text;
+  void register() async {
+    String email = emailController.text;
+    String password = passwordController.text;
 
     try {
       UserCredential userCredential =
@@ -130,6 +162,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
         password: password,
       );
       // Registration successful, navigate to the therapist homepage
+      String userId = userCredential.user!.uid; // Get the user ID
+
+      // Save user email along with user ID to the database
+      _userRef.child(userId).set({'email': email});
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => TherapistHomePage()),
@@ -146,8 +182,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             errorMessage = 'The password provided is too weak.';
             break;
           default:
-            errorMessage =
-                'An error occurred while registering: ${e.message}';
+            errorMessage = 'An error occurred while registering: ${e.message}';
             break;
         }
       }
@@ -159,4 +194,51 @@ class _RegistrationPageState extends State<RegistrationPage> {
       );
     }
   }
+
+  bool isStrongPassword(String password) {
+    // Check if the password meets the minimum length requirement
+    if (password.length < 6) {
+      displayError("Password Should Be At Leaset 6 Characters Long!");
+      return false;
+    }
+
+    // Check if the password contains at least one uppercase letter
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      displayError("Password should contain at least one uppercase letter!");
+      return false;
+    }
+
+    // Check if the password contains at least one lowercase letter
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      displayError("Password should contain at least one lowercase letter!");
+      return false;
+    }
+
+    // Check if the password contains at least one digit
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      displayError("Password should contain at least one number digit!");
+      return false;
+    }
+
+    // Check if the password contains at least one special character
+    //if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {return false;}
+
+    // If all conditions pass, then the password is strong
+    return true;
+  }
+
+  void displayError(String errorToDisplay) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorToDisplay),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+ Future<bool> emailIsInUse(String email) async {
+  return false;
+}
+
+
 }
