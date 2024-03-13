@@ -14,8 +14,10 @@ class RegistrationPage extends StatefulWidget {
 class RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController verifyPasswordController = TextEditingController();
-final DatabaseReference _userRef = FirebaseDatabase.instance.ref().child('users');
+  final TextEditingController verifyPasswordController =
+      TextEditingController();
+  final DatabaseReference _userRef =
+      FirebaseDatabase.instance.ref().child('users');
 
   int currentStep = 0;
 
@@ -32,11 +34,19 @@ final DatabaseReference _userRef = FirebaseDatabase.instance.ref().child('users'
   Widget buildStepper() {
     return Stepper(
       currentStep: currentStep,
-      onStepContinue: () {
+      onStepContinue: () async {
         if (currentStep == 3) {
           return;
         } else if (currentStep == 0) {
-          emailIsInUse(emailController.text);
+          bool emailUsed = await emailIsInUse(emailController.text);
+          if (emailUsed) {
+            displayError(
+                "This Email Is Already Registered,try reseting the password!");
+          } else {
+            setState(() {
+              currentStep += 1;
+            });
+          }
         } else if (currentStep == 1) {
           if (isStrongPassword(passwordController.text)) {
             setState(() {
@@ -236,9 +246,24 @@ final DatabaseReference _userRef = FirebaseDatabase.instance.ref().child('users'
     );
   }
 
- Future<bool> emailIsInUse(String email) async {
-  return false;
-}
+  Future<bool> emailIsInUse(String email) async {
+    DatabaseReference databaseReference = FirebaseDatabase.instance.ref().child('users');
 
+    DataSnapshot dataSnapshot;
+    try {
+      dataSnapshot =
+          await databaseReference.once().then((snapshot) => snapshot.snapshot);
+    } catch (e) {
+      return false; // Assuming no error means the email is not in use
+    }
 
+    Map<dynamic, dynamic>? values =
+        dataSnapshot.value as Map<dynamic, dynamic>?;
+
+    if (values != null) {
+      return values.values.any((value) => value['email'] == email);
+    } else {
+      return false;
+    }
+  }
 }
