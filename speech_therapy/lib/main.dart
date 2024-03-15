@@ -1,10 +1,11 @@
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'ResetPasswordPage.dart';
 import 'therapist/therapist_home_page.dart'; // Import the therapist homepage file
 import 'registrationPage.dart'; // Import the registration page file
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 
 void main() async {
   // Ensure Firebase initialization completes before running the app
@@ -43,30 +44,46 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false; // Added for password visibility toggle
 
+  void displayError(String errorToDisplay) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorToDisplay),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   void _login() async {
     try {
-      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _usernameController.text,
         password: _passwordController.text,
       );
-      
-      // If login is successful, navigate to the therapist homepage
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => TherapistHomePage()),
-      );
+
+      // If login is successful, navigate to the relevant user homepage
+      //TODO Navigate to relevant page according to isTherapist In The Users Array.
+    
     } catch (e) {
-      print('Login failed: $e');
       // Handle login failure here
+      if (e is FirebaseAuthException) {
+        displayError("Incorrect Email Or Password!");
+      }
     }
   }
-
 
   void _navigateToRegistration() {
     // Navigate to the registration page
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => RegistrationPage()),
+    );
+  }
+
+  void _navigateToResetPassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ResetPasswordPage()),
     );
   }
 
@@ -96,7 +113,9 @@ class _LoginPageState extends State<LoginPage> {
                 labelText: 'Password',
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    _isPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                     color: Colors.grey,
                   ),
                   onPressed: () {
@@ -124,6 +143,26 @@ class _LoginPageState extends State<LoginPage> {
                   children: <TextSpan>[
                     TextSpan(
                       text: "Register Here!",
+                      style: TextStyle(
+                        color: Colors.blue, // Change the color of the blue link
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: _navigateToResetPassword,
+              child: const Text.rich(
+                TextSpan(
+                  text: "Forgot your password? ",
+                  style: TextStyle(
+                    color: Colors.black, // Change the color of the regular text
+                  ),
+                  children: <TextSpan>[
+                    TextSpan(
+                      text: "Reset it here!",
                       style: TextStyle(
                         color: Colors.blue, // Change the color of the blue link
                         decoration: TextDecoration.underline,

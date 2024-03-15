@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-import 'therapist/therapist_home_page.dart'; // Import the therapist homepage file
-
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({Key? key}) : super(key: key);
 
@@ -16,10 +14,14 @@ class RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController verifyPasswordController =
       TextEditingController();
+  final TextEditingController therapistCodeController = TextEditingController();
   final DatabaseReference _userRef =
       FirebaseDatabase.instance.ref().child('users');
+  final DatabaseReference _therapistCodeRef =
+      FirebaseDatabase.instance.ref().child('therapist_codes');
 
   int currentStep = 0;
+  bool _isTherapist = false;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         title: const Text('Register'),
       ),
-      body: currentStep == 3 ? buildRegistrationForm() : buildStepper(),
+      body: currentStep == 5 ? buildRegistrationForm() : buildStepper(),
     );
   }
 
@@ -35,13 +37,19 @@ class RegistrationPageState extends State<RegistrationPage> {
     return Stepper(
       currentStep: currentStep,
       onStepContinue: () async {
-        if (currentStep == 3) {
-          return;
+        if (currentStep == 4) {
+          setState(() {
+            currentStep += 1;
+          });
         } else if (currentStep == 0) {
           bool emailUsed = await emailIsInUse(emailController.text);
+          final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
           if (emailUsed) {
             displayError(
-                "This Email Is Already Registered,try reseting the password!");
+                "This Email Is Already Registered,try resetting the password!");
+          } else if (emailController.text == '' ||
+              emailRegex.hasMatch(emailController.text) == false) {
+            displayError("Enter A Valid Email!");
           } else {
             setState(() {
               currentStep += 1;
@@ -53,10 +61,40 @@ class RegistrationPageState extends State<RegistrationPage> {
               currentStep += 1;
             });
           }
-        } else if (currentStep == 2 &&
-            passwordController.text != verifyPasswordController.text) {
-          displayError("The Two Passwords Must Match!");
-        } else {
+        } else if (currentStep == 2) {
+          if (passwordController.text != verifyPasswordController.text) {
+            displayError("The Two Passwords Must Match!");
+          } else {
+            setState(() {
+              currentStep += 1;
+            });
+          }
+        } else if (currentStep == 3) {
+          if (_isTherapist) {
+            setState(() {
+              currentStep += 1;
+            });
+          }
+          if (!_isTherapist) {
+            setState(() {
+              currentStep = 5;
+            });
+          }
+        } else if (currentStep == 4) {
+          // Check if the user is a therapist and handle the step accordingly
+          if (_isTherapist) {
+            bool isValidCode =
+                await validateTherapistCode(therapistCodeController.text);
+            if (!isValidCode) {
+              displayError("Invalid therapist code!");
+              return;
+            }
+            if (isValidCode) {
+              setState(() {
+                currentStep += 1;
+              });
+            }
+          }
           setState(() {
             currentStep += 1;
           });
@@ -116,6 +154,40 @@ class RegistrationPageState extends State<RegistrationPage> {
           isActive: currentStep >= 2,
           state: currentStep >= 2 ? StepState.complete : StepState.disabled,
         ),
+        Step(
+          title: const Text('Are you a therapist?'),
+          content: Column(
+            children: [
+              CheckboxListTile(
+                title: const Text('Yes'),
+                value: _isTherapist,
+                onChanged: (value) {
+                  setState(() {
+                    _isTherapist = value!;
+                  });
+                },
+              ),
+            ],
+          ),
+          isActive: currentStep >= 3,
+          state: currentStep >= 3 ? StepState.complete : StepState.disabled,
+        ),
+        Step(
+          title: const Text('Enter Therapist Code'),
+          content: Column(
+            children: [
+              TextField(
+                controller: therapistCodeController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Therapist Code',
+                ),
+              ),
+            ],
+          ),
+          isActive: currentStep >= 4,
+          state: currentStep >= 4 ? StepState.complete : StepState.disabled,
+        ),
       ],
     );
   }
@@ -132,7 +204,7 @@ class RegistrationPageState extends State<RegistrationPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Register?',
                   style: TextStyle(
                     fontSize: 18.0,
@@ -142,16 +214,30 @@ class RegistrationPageState extends State<RegistrationPage> {
                 Text('Email: ${emailController.text}'),
                 const SizedBox(height: 10.0),
                 Text('Password: ${passwordController.text}'),
+                if (_isTherapist)
+                  Text('Therapist Code: ${therapistCodeController.text}'),
                 const SizedBox(height: 20.0),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: register,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          currentStep -= 1;
+                        });
+                      },
+                      child: const Text('Back'),
                     ),
-                    child: const Text('Click To Register!'),
-                  ),
+                    const SizedBox(height: 10.0),
+                    ElevatedButton(
+                      onPressed: register,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Click To Register!'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -175,11 +261,15 @@ class RegistrationPageState extends State<RegistrationPage> {
       String userId = userCredential.user!.uid; // Get the user ID
 
       // Save user email along with user ID to the database
-      _userRef.child(userId).set({'email': email});
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => TherapistHomePage()),
+       _userRef.child(userId).set({'email': email, 'isTherapist': _isTherapist});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email Registered! Please Login!'),
+          backgroundColor: Colors.green,
+        ),
       );
+      Navigator.pop(context);
     } catch (e) {
       // Registration failed, handle the error appropriately.
       String errorMessage = 'Registration failed';
@@ -208,7 +298,7 @@ class RegistrationPageState extends State<RegistrationPage> {
   bool isStrongPassword(String password) {
     // Check if the password meets the minimum length requirement
     if (password.length < 6) {
-      displayError("Password Should Be At Leaset 6 Characters Long!");
+      displayError("Password Should Be At Least 6 Characters Long!");
       return false;
     }
 
@@ -230,9 +320,6 @@ class RegistrationPageState extends State<RegistrationPage> {
       return false;
     }
 
-    // Check if the password contains at least one special character
-    //if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {return false;}
-
     // If all conditions pass, then the password is strong
     return true;
   }
@@ -247,7 +334,8 @@ class RegistrationPageState extends State<RegistrationPage> {
   }
 
   Future<bool> emailIsInUse(String email) async {
-    DatabaseReference databaseReference = FirebaseDatabase.instance.ref().child('users');
+    DatabaseReference databaseReference =
+        FirebaseDatabase.instance.ref().child('users');
 
     DataSnapshot dataSnapshot;
     try {
@@ -262,6 +350,29 @@ class RegistrationPageState extends State<RegistrationPage> {
 
     if (values != null) {
       return values.values.any((value) => value['email'] == email);
+    } else {
+      return false;
+    }
+  }
+
+  Future<bool> validateTherapistCode(String code) async {
+    //TODO Have A Way To See If Therapist code is correct in the database
+    return true;
+    DatabaseReference databaseReference =
+        FirebaseDatabase.instance.ref().child('therapist_codes');
+
+    DataSnapshot dataSnapshot;
+    try {
+      dataSnapshot =
+          await databaseReference.once().then((snapshot) => snapshot.snapshot);
+    } catch (e) {
+      return false; // Assuming no error means the code is not valid
+    }
+
+    Map<dynamic, dynamic>? codes = dataSnapshot.value as Map<dynamic, dynamic>?;
+
+    if (codes != null) {
+      return codes.containsKey(code);
     } else {
       return false;
     }
