@@ -77,7 +77,7 @@ class RegistrationPageState extends State<RegistrationPage> {
           }
           if (!_isTherapist) {
             setState(() {
-              currentStep = 5;
+              currentStep +=2;
             });
           }
         } else if (currentStep == 4) {
@@ -223,7 +223,7 @@ class RegistrationPageState extends State<RegistrationPage> {
                     ElevatedButton(
                       onPressed: () {
                         setState(() {
-                          currentStep -= 1;
+                          currentStep = 3;
                         });
                       },
                       child: const Text('Back'),
