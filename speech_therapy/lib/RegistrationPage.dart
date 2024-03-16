@@ -37,11 +37,7 @@ class RegistrationPageState extends State<RegistrationPage> {
     return Stepper(
       currentStep: currentStep,
       onStepContinue: () async {
-        if (currentStep == 4) {
-          setState(() {
-            currentStep += 1;
-          });
-        } else if (currentStep == 0) {
+         if (currentStep == 0) {
           bool emailUsed = await emailIsInUse(emailController.text);
           final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
           if (emailUsed) {
@@ -77,10 +73,11 @@ class RegistrationPageState extends State<RegistrationPage> {
           }
           if (!_isTherapist) {
             setState(() {
-              currentStep +=2;
+              currentStep += 2;
             });
           }
         } else if (currentStep == 4) {
+          print('step 4');
           // Check if the user is a therapist and handle the step accordingly
           if (_isTherapist) {
             bool isValidCode =
@@ -94,10 +91,11 @@ class RegistrationPageState extends State<RegistrationPage> {
                 currentStep += 1;
               });
             }
-          }
+          }else{
           setState(() {
             currentStep += 1;
           });
+        }
         }
       },
       onStepCancel: () {
@@ -261,7 +259,7 @@ class RegistrationPageState extends State<RegistrationPage> {
       String userId = userCredential.user!.uid; // Get the user ID
 
       // Save user email along with user ID to the database
-       _userRef.child(userId).set({'email': email, 'isTherapist': _isTherapist});
+      _userRef.child(userId).set({'email': email, 'isTherapist': _isTherapist});
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -356,25 +354,23 @@ class RegistrationPageState extends State<RegistrationPage> {
   }
 
   Future<bool> validateTherapistCode(String code) async {
-    //TODO Have A Way To See If Therapist code is correct in the database
-    return true;
-    DatabaseReference databaseReference =
-        FirebaseDatabase.instance.ref().child('therapist_codes');
-
-    DataSnapshot dataSnapshot;
     try {
-      dataSnapshot =
-          await databaseReference.once().then((snapshot) => snapshot.snapshot);
+      DatabaseReference therapistCodesRef =
+          FirebaseDatabase.instance.ref('therapistCode');
+      DataSnapshot therapistCodesSnapshot =
+          (await therapistCodesRef.once()).snapshot;
+      Object? therapistCode = therapistCodesSnapshot.value;
+
+      // If snapshot or therapistCode is null, or if code doesn't match, return false
+      if (therapistCodesSnapshot.value == null ||
+          therapistCode == null ||
+          therapistCode != int.tryParse(code)) {
+        return false;
+      } else {
+        return true; // Therapist code is valid
+      }
     } catch (e) {
-      return false; // Assuming no error means the code is not valid
-    }
-
-    Map<dynamic, dynamic>? codes = dataSnapshot.value as Map<dynamic, dynamic>?;
-
-    if (codes != null) {
-      return codes.containsKey(code);
-    } else {
-      return false;
+      return false; // Error occurred, code is not valid
     }
   }
 }

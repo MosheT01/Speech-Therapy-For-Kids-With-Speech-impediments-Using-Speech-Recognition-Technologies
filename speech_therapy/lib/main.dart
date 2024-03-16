@@ -54,52 +54,46 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-
-
-
-Future<Object?> isUserTherapist(String uid) async {
-  try {
-    DatabaseReference userRef = FirebaseDatabase.instance.ref('users/$uid/isTherapist');
-    DataSnapshot isTherapistSnapshot = (await userRef.once()).snapshot;
-    Object? isTherapist = isTherapistSnapshot.value;
-    return isTherapist;
-  } catch (e) {
-    print("Error: $e");
-    return false;
+  Future<Object?> isUserTherapist(String uid) async {
+    try {
+      DatabaseReference userRef =
+          FirebaseDatabase.instance.ref('users/$uid/isTherapist');
+      DataSnapshot isTherapistSnapshot = (await userRef.once()).snapshot;
+      Object? isTherapist = isTherapistSnapshot.value;
+      return isTherapist;
+    } catch (e) {
+      return false;
+    }
   }
-}
-
-
 
   void _login() async {
-  try {
-    UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: _usernameController.text,
-      password: _passwordController.text,
-    );
+    try {
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _usernameController.text,
+        password: _passwordController.text,
+      );
 
-    // If login is successful, navigate to the relevant user homepage
-    Object? isTherapist = await isUserTherapist(userCredential.user!.uid);
-    if (isTherapist != null && isTherapist==true) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const TherapistHomePage()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const ChildHomePage()),
-      );
-    }
-  } catch (e) {
-    // Handle login failure here
-    if (e is FirebaseAuthException) {
-      displayError("Incorrect Email Or Password!");
+      // If login is successful, navigate to the relevant user homepage
+      Object? isTherapist = await isUserTherapist(userCredential.user!.uid);
+      if (isTherapist != null && isTherapist == true) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const TherapistHomePage()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ChildHomePage()),
+        );
+      }
+    } catch (e) {
+      // Handle login failure here
+      if (e is FirebaseAuthException) {
+        displayError("Incorrect Email Or Password!");
+      }
     }
   }
-}
-
 
   void _navigateToRegistration() {
     // Navigate to the registration page
