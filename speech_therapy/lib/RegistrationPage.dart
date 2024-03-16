@@ -17,6 +17,7 @@ class RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController therapistCodeController = TextEditingController();
   final DatabaseReference _userRef =
       FirebaseDatabase.instance.ref().child('users');
+  // ignore: unused_field
   final DatabaseReference _therapistCodeRef =
       FirebaseDatabase.instance.ref().child('therapist_codes');
 
@@ -37,7 +38,7 @@ class RegistrationPageState extends State<RegistrationPage> {
     return Stepper(
       currentStep: currentStep,
       onStepContinue: () async {
-         if (currentStep == 0) {
+        if (currentStep == 0) {
           bool emailUsed = await emailIsInUse(emailController.text);
           final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
           if (emailUsed) {
@@ -77,7 +78,6 @@ class RegistrationPageState extends State<RegistrationPage> {
             });
           }
         } else if (currentStep == 4) {
-          print('step 4');
           // Check if the user is a therapist and handle the step accordingly
           if (_isTherapist) {
             bool isValidCode =
@@ -91,11 +91,11 @@ class RegistrationPageState extends State<RegistrationPage> {
                 currentStep += 1;
               });
             }
-          }else{
-          setState(() {
-            currentStep += 1;
-          });
-        }
+          } else {
+            setState(() {
+              currentStep += 1;
+            });
+          }
         }
       },
       onStepCancel: () {

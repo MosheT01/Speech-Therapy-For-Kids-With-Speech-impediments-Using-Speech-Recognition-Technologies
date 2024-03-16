@@ -3,7 +3,7 @@ import 'patient_management_screen.dart'; // Import the patient management screen
 import 'schedule_appointment_screen.dart'; // Import the schedule appointment screen
 
 class TherapistHomePage extends StatelessWidget {
-  const TherapistHomePage({super.key});
+  const TherapistHomePage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -11,13 +11,16 @@ class TherapistHomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Therapist Home'),
       ),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
               'Welcome, Therapist!',
               style: TextStyle(fontSize: 24.0),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20.0),
             ElevatedButton(
@@ -30,6 +33,7 @@ class TherapistHomePage extends StatelessWidget {
               },
               child: const Text('Manage Patients'),
             ),
+            const SizedBox(height: 10.0),
             ElevatedButton(
               onPressed: () {
                 // Navigate to the screen for scheduling appointments
@@ -39,6 +43,13 @@ class TherapistHomePage extends StatelessWidget {
                 );
               },
               child: const Text('Schedule Appointment'),
+            ),
+            const SizedBox(height: 10.0),
+            ElevatedButton(
+              onPressed: () {
+                // Add functionality for additional feature
+              },
+              child: const Text('Additional Feature'),
             ),
             // Add more buttons and functionality as needed
           ],
