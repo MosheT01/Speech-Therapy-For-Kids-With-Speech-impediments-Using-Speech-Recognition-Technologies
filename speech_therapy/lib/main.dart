@@ -1,5 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:speech_therapy/child/childHomePage.dart';
 import 'ResetPasswordPage.dart';
 import 'therapist/therapist_home_page.dart'; // Import the therapist homepage file
 import 'registrationPage.dart'; // Import the registration page file
@@ -53,37 +54,65 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _login() async {
-    try {
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _usernameController.text,
-        password: _passwordController.text,
-      );
 
-      // If login is successful, navigate to the relevant user homepage
-      //TODO Navigate to relevant page according to isTherapist In The Users Array.
-    
-    } catch (e) {
-      // Handle login failure here
-      if (e is FirebaseAuthException) {
-        displayError("Incorrect Email Or Password!");
-      }
+
+
+Future<Object?> isUserTherapist(String uid) async {
+  try {
+    DatabaseReference userRef = FirebaseDatabase.instance.ref('users/$uid/isTherapist');
+    DataSnapshot isTherapistSnapshot = (await userRef.once()).snapshot;
+    Object? isTherapist = isTherapistSnapshot.value;
+    return isTherapist;
+  } catch (e) {
+    print("Error: $e");
+    return false;
+  }
+}
+
+
+
+  void _login() async {
+  try {
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: _usernameController.text,
+      password: _passwordController.text,
+    );
+
+    // If login is successful, navigate to the relevant user homepage
+    Object? isTherapist = await isUserTherapist(userCredential.user!.uid);
+    if (isTherapist != null && isTherapist==true) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const TherapistHomePage()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const ChildHomePage()),
+      );
+    }
+  } catch (e) {
+    // Handle login failure here
+    if (e is FirebaseAuthException) {
+      displayError("Incorrect Email Or Password!");
     }
   }
+}
+
 
   void _navigateToRegistration() {
     // Navigate to the registration page
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => RegistrationPage()),
+      MaterialPageRoute(builder: (context) => const RegistrationPage()),
     );
   }
 
   void _navigateToResetPassword() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ResetPasswordPage()),
+      MaterialPageRoute(builder: (context) => const ResetPasswordPage()),
     );
   }
 

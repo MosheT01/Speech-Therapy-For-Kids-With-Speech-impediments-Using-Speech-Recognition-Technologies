@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 class ChildHomePage extends StatelessWidget {
-  const ChildHomePage({Key? key}) : super(key: key);
+  const ChildHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Child Home Page'),
+        title: const Text('Child Home Page'),
       ),
-      body: Center(
+      body: const Center(
         child: Text(
           'Welcome to the Child Home Page!',
           style: TextStyle(fontSize: 24),

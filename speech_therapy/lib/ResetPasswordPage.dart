@@ -1,9 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'main.dart';
 
 class ResetPasswordPage extends StatelessWidget {
-  const ResetPasswordPage({Key? key}) : super(key: key);
+  const ResetPasswordPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,13 +10,13 @@ class ResetPasswordPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Reset Password'),
       ),
-      body: ResetPasswordForm(),
+      body: const ResetPasswordForm(),
     );
   }
 }
 
 class ResetPasswordForm extends StatefulWidget {
-  const ResetPasswordForm({Key? key}) : super(key: key);
+  const ResetPasswordForm({super.key});
 
   @override
   _ResetPasswordFormState createState() => _ResetPasswordFormState();
