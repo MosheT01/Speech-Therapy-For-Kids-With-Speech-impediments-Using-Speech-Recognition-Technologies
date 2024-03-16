@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'patient_management_screen.dart'; // Import the patient management screen
 import 'schedule_appointment_screen.dart'; // Import the schedule appointment screen
+// Import additional screens and features as needed
 
 class TherapistHomePage extends StatelessWidget {
   const TherapistHomePage({Key? key}) : super(key: key);
@@ -48,6 +49,7 @@ class TherapistHomePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 // Add functionality for additional feature
+                // Navigate to the screen for additional feature
               },
               child: const Text('Additional Feature'),
             ),
