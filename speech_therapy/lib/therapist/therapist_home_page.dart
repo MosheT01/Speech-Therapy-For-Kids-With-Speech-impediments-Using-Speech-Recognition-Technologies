@@ -44,15 +44,7 @@ class TherapistHomePage extends StatelessWidget {
                 );
               },
               child: const Text('Schedule Appointment'),
-            ),
-            const SizedBox(height: 10.0),
-            ElevatedButton(
-              onPressed: () {
-                // Add functionality for additional feature
-                // Navigate to the screen for additional feature
-              },
-              child: const Text('Additional Feature'),
-            ),
+            )
             // Add more buttons and functionality as needed
           ],
         ),
