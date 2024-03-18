@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'AddPatientScreen.dart';
 
 class PatientManagementScreen extends StatelessWidget {
-  const PatientManagementScreen({Key? key}) : super(key: key);
+  const PatientManagementScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Manage Patients'),
+        title: const Text('Manage Patients'),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -16,7 +16,7 @@ class PatientManagementScreen extends StatelessWidget {
           // For example:
           Navigator.push(
           context,
-           MaterialPageRoute(builder: (context) => AddPatientScreen()),
+           MaterialPageRoute(builder: (context) => const AddPatientScreen()),
            );
         },
         child: const Icon(Icons.add),

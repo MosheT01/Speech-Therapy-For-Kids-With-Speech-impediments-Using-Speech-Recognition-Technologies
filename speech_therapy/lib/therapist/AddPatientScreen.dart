@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-//TODO ADD VALIDATION OF SECOND STEP FEILDS
+//TODO: ADD VALIDATION OF SECOND STEP FEILDS
 
 //TODO register thhe child in backend...1)make has therapist=true2)make therapist have the child as a patient
 
@@ -37,7 +37,7 @@ Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
 }
 
 class AddPatientScreen extends StatefulWidget {
-  const AddPatientScreen({Key? key}) : super(key: key);
+  const AddPatientScreen({super.key});
 
   @override
   _AddPatientScreenState createState() => _AddPatientScreenState();

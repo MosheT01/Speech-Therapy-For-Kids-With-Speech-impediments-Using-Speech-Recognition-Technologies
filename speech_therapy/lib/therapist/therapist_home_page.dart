@@ -4,7 +4,7 @@ import 'schedule_appointment_screen.dart'; // Import the schedule appointment sc
 // Import additional screens and features as needed
 
 class TherapistHomePage extends StatelessWidget {
-  const TherapistHomePage({Key? key}) : super(key: key);
+  const TherapistHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
