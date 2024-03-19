@@ -24,7 +24,8 @@ Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
     var userWithGivenEmail = values.values
         .firstWhere((value) => value['email'] == email, orElse: () => null);
     if (userWithGivenEmail != null) {
-      if (userWithGivenEmail['hasTherapist'] == false && userWithGivenEmail['isTherapist']==false) {
+      if (userWithGivenEmail['hasTherapist'] == false &&
+          userWithGivenEmail['isTherapist'] == false) {
         return true;
       } else {
         return false;
@@ -90,10 +91,25 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
         currentStep: _currentStep,
         onStepContinue: () async {
           if (_currentStep == 0) {
-            bool isInUse = await emailIsInUseAndDoesntHaveTherapist(_emailController.text);
+            bool isInUse =
+                await emailIsInUseAndDoesntHaveTherapist(_emailController.text);
             if (!isInUse) {
               displayError(
                   "No Child Is Registered To This Email!\nMake Them Register First.");
+            } else {
+              setState(() {
+                _currentStep += 1;
+              });
+            }
+          } else if (_currentStep == 1) {
+            if (_firstNameController.text.isEmpty ||
+                _lastNameController.text.isEmpty ||
+                _ageController.text.isEmpty ||
+                _selectedGender.isEmpty) {
+              displayError(
+                  "Some Of The Feilds Are Empty!\nPlease Fill The Whole Form!");
+            } else if (_ageController.text.contains(RegExp(r'[A-Z]'))) {//TODO: Continue the validation process for step 2 
+              displayError("age Should Only Contain Positive Numbers!");
             } else {
               setState(() {
                 _currentStep += 1;
