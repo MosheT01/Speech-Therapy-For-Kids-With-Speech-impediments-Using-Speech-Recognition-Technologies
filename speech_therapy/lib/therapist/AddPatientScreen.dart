@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-//TODO: ADD VALIDATION OF SECOND STEP FEILDS
-
 //TODO register thhe child in backend...1)make has therapist=true2)make therapist have the child as a patient
 bool _isLoading = false;
 
@@ -38,12 +36,53 @@ Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
   return false;
 }
 
-bool addPatientToDataBase() {
-  return false;
+Future<bool> addPatientToDataBase({
+  required String therapistId,
+  required String email,
+  required String firstName,
+  required String lastName,
+  required int age,
+  required String gender,
+}) async {
+  try {
+    DatabaseReference ref = FirebaseDatabase.instance.ref("users");
+
+    // Find the user with the provided email
+    DataSnapshot dataSnapshot =
+        (await ref.orderByChild('email').equalTo(email).once()).snapshot;
+    Map<dynamic, dynamic>? users = dataSnapshot.value as Map<dynamic, dynamic>?;
+
+    if (users != null && users.isNotEmpty) {
+      String userId =
+          users.keys.first; // Assuming email is unique, get the first user's ID
+      // Update the user's data to set hasTherapist to true
+      await ref.child(userId).update({'hasTherapist': true});
+
+      // Add the patient's data under the therapist's patients
+      DatabaseReference patientsRef =
+          FirebaseDatabase.instance.ref("users/$therapistId/patients");
+      await patientsRef.push().set({
+        'email': email,
+        'firstName': firstName,
+        'lastName': lastName,
+        'age': age,
+        'gender': gender,
+      });
+
+      return true; // Successfully added patient data
+    } else {
+      print("User with email $email not found.");
+      return false; // User not found
+    }
+  } catch (e) {
+    print("Error adding patient data: $e");
+    return false; // Failed to add patient data
+  }
 }
 
 class AddPatientScreen extends StatefulWidget {
-  const AddPatientScreen({super.key});
+  final String userId;
+  const AddPatientScreen({super.key, required this.userId});
 
   @override
   _AddPatientScreenState createState() => _AddPatientScreenState();
@@ -107,7 +146,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 await emailIsInUseAndDoesntHaveTherapist(_emailController.text);
             if (!isInUse) {
               displayError(
-                  "No Child Is Registered To This Email!\nMake Them Register First.");
+                  "Either No Child Is Registered To This Email! Or The Child Is Registered To Another Therapist!\nMake Them Register First.");
             } else {
               setState(() {
                 _currentStep += 1;
@@ -135,12 +174,23 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
             });
           } else {
             // Handle submission of patient data
-            // For example, you can call a function here to save the patient details
-            // This is where you would handle form submission or confirmation
-            // For now, let's just navigate back to the previous screen
-
-            Navigator.pop(context);
+            bool success = await addPatientToDataBase(
+              therapistId: widget.userId,
+              email: _emailController.text,
+              firstName: _firstNameController.text,
+              lastName: _lastNameController.text,
+              age: int.tryParse(_ageController.text) ?? 0,
+              gender: _selectedGender,
+            );
+            if (success) {
+              // Patient data added successfully, navigate back
+              Navigator.pop(context);
+            } else {
+              // Error adding patient data, display error message
+              displayError("Failed to add patient data. Please try again.");
+            }
           }
+
           setState(() {
             _isLoading = false;
           });

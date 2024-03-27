@@ -81,16 +81,21 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       // If login is successful, navigate to the relevant user homepage
+      // Extract user ID
+      String userId = userCredential.user!.uid;
       Object? isTherapist = await isUserTherapist(userCredential.user!.uid);
       if (isTherapist != null && isTherapist == true) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const TherapistHomePage()),
+          MaterialPageRoute(
+              builder: (context) => TherapistHomePage(userId: userId)),
         );
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const ChildHomePage()),
+          MaterialPageRoute(
+              builder: (context) =>
+                  ChildHomePage(userId: userId)),
         );
       }
     } catch (e) {

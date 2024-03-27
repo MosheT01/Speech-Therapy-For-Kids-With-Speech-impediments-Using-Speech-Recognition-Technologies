@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'AddPatientScreen.dart';
 
 class PatientManagementScreen extends StatelessWidget {
-  const PatientManagementScreen({super.key});
+  final String userId;
+  const PatientManagementScreen({super.key,required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +17,7 @@ class PatientManagementScreen extends StatelessWidget {
           // For example:
           Navigator.push(
           context,
-           MaterialPageRoute(builder: (context) => const AddPatientScreen()),
+           MaterialPageRoute(builder: (context) =>  AddPatientScreen(userId: userId,)),
            );
         },
         child: const Icon(Icons.add),

@@ -4,7 +4,9 @@ import 'schedule_appointment_screen.dart'; // Import the schedule appointment sc
 // Import additional screens and features as needed
 
 class TherapistHomePage extends StatelessWidget {
-  const TherapistHomePage({super.key});
+   final String userId;
+
+   const TherapistHomePage({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +31,7 @@ class TherapistHomePage extends StatelessWidget {
                 // Navigate to the screen for managing patients
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const PatientManagementScreen()),
+                  MaterialPageRoute(builder: (context) => PatientManagementScreen(userId: userId)),
                 );
               },
               child: const Text('Manage Patients'),
@@ -40,7 +42,7 @@ class TherapistHomePage extends StatelessWidget {
                 // Navigate to the screen for scheduling appointments
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ScheduleAppointmentScreen()),
+                  MaterialPageRoute(builder: (context) =>  ScheduleAppointmentScreen(userId: userId,)),
                 );
               },
               child: const Text('Schedule Appointment'),

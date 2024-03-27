@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class ScheduleAppointmentScreen extends StatelessWidget {
-  const ScheduleAppointmentScreen({super.key});
+  final String userId;
+  const ScheduleAppointmentScreen({super.key,required this.userId});
 
   @override
   Widget build(BuildContext context) {
