@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 //TODO register thhe child in backend...1)make has therapist=true2)make therapist have the child as a patient
+//TODO Further Testing On Adding Patients And Specified Error Message
+//TODO should we add an option to remove patients from therapist?
+//TODO Display Patients In Patient Managing Screen
 bool _isLoading = false;
 
 Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
