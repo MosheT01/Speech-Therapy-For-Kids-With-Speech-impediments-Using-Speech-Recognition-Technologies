@@ -8,6 +8,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+bool _isLoading = false;
+
 void main() async {
   // Ensure Firebase initialization completes before running the app
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +69,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _login() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -92,6 +98,10 @@ class _LoginPageState extends State<LoginPage> {
       if (e is FirebaseAuthException) {
         displayError("Incorrect Email Or Password!");
       }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -151,8 +161,11 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 20.0),
             ElevatedButton(
-              onPressed: _login,
-              child: const Text('Login'),
+              onPressed:
+                  _isLoading ? null : _login, // Disable button when loading,
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : const Text('Login'),
             ),
             const SizedBox(height: 10.0), // Add some spacing
             GestureDetector(

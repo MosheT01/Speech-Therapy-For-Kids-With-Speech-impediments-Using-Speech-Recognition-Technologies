@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+bool _isLoading = false;
+
 Future<bool> emailIsInUse(String email) async {
   DatabaseReference databaseReference =
       FirebaseDatabase.instance.ref().child('users');
@@ -80,6 +82,13 @@ class RegistrationPageState extends State<RegistrationPage> {
     return Stepper(
       currentStep: currentStep,
       onStepContinue: () async {
+        if (_isLoading) {
+          return;
+        }
+        setState(() {
+          _isLoading = true;
+        });
+
         if (currentStep == 0) {
           bool emailUsed = await emailIsInUse(emailController.text);
           final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
@@ -139,6 +148,9 @@ class RegistrationPageState extends State<RegistrationPage> {
             });
           }
         }
+        setState(() {
+          _isLoading = false;
+        });
       },
       onStepCancel: () {
         if (currentStep > 0) {
@@ -270,12 +282,14 @@ class RegistrationPageState extends State<RegistrationPage> {
                     ),
                     const SizedBox(height: 10.0),
                     ElevatedButton(
-                      onPressed: register,
+                      onPressed: _isLoading ? null : () => register(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Click To Register!'),
+                      child: _isLoading
+                          ? const CircularProgressIndicator() // Show loading indicator if isLoading is true
+                          : const Text('Click To Register!'),
                     ),
                   ],
                 ),
@@ -288,6 +302,10 @@ class RegistrationPageState extends State<RegistrationPage> {
   }
 
   void register() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     String email = emailController.text;
     String password = passwordController.text;
 
@@ -301,7 +319,8 @@ class RegistrationPageState extends State<RegistrationPage> {
       String userId = userCredential.user!.uid; // Get the user ID
 
       // Save user email along with user ID to the database
-      _userRef.child(userId).set({'email': email, 'isTherapist': _isTherapist,'hasTherapist':false});
+      _userRef.child(userId).set(
+          {'email': email, 'isTherapist': _isTherapist, 'hasTherapist': false});
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -326,12 +345,11 @@ class RegistrationPageState extends State<RegistrationPage> {
             break;
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
+      displayError(errorMessage);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 

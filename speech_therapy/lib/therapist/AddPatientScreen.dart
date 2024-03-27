@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 //TODO: ADD VALIDATION OF SECOND STEP FEILDS
 
 //TODO register thhe child in backend...1)make has therapist=true2)make therapist have the child as a patient
+bool _isLoading = false;
 
 Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
   DatabaseReference databaseReference =
@@ -34,6 +35,10 @@ Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
   }
 
   // User with the provided email does not exist or has no therapist
+  return false;
+}
+
+bool addPatientToDataBase() {
   return false;
 }
 
@@ -90,6 +95,13 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
         type: StepperType.vertical,
         currentStep: _currentStep,
         onStepContinue: () async {
+          if (_isLoading) {
+            return;
+          }
+          setState(() {
+            _isLoading = true;
+          });
+
           if (_currentStep == 0) {
             bool isInUse =
                 await emailIsInUseAndDoesntHaveTherapist(_emailController.text);
@@ -108,8 +120,10 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 _selectedGender.isEmpty) {
               displayError(
                   "Some Of The Feilds Are Empty!\nPlease Fill The Whole Form!");
-            } else if (_ageController.text.contains(RegExp(r'[A-Z]'))) {//TODO: Continue the validation process for step 2 
-              displayError("age Should Only Contain Positive Numbers!");
+            } else if (int.tryParse(_ageController.text) == null ||
+                int.tryParse(_ageController.text)! < 1 ||
+                int.tryParse(_ageController.text)! > 150) {
+              displayError("Age Should Be Between 1 And 150.");
             } else {
               setState(() {
                 _currentStep += 1;
@@ -124,8 +138,12 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
             // For example, you can call a function here to save the patient details
             // This is where you would handle form submission or confirmation
             // For now, let's just navigate back to the previous screen
+
             Navigator.pop(context);
           }
+          setState(() {
+            _isLoading = false;
+          });
         },
         onStepCancel: () {
           setState(() {
