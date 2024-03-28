@@ -8,6 +8,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+bool _isLoading = false;
+
 void main() async {
   // Ensure Firebase initialization completes before running the app
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +69,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _login() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -75,16 +81,21 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       // If login is successful, navigate to the relevant user homepage
+      // Extract user ID
+      String userId = userCredential.user!.uid;
       Object? isTherapist = await isUserTherapist(userCredential.user!.uid);
       if (isTherapist != null && isTherapist == true) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const TherapistHomePage()),
+          MaterialPageRoute(
+              builder: (context) => TherapistHomePage(userId: userId)),
         );
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const ChildHomePage()),
+          MaterialPageRoute(
+              builder: (context) =>
+                  ChildHomePage(userId: userId)),
         );
       }
     } catch (e) {
@@ -92,6 +103,10 @@ class _LoginPageState extends State<LoginPage> {
       if (e is FirebaseAuthException) {
         displayError("Incorrect Email Or Password!");
       }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -151,8 +166,11 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 20.0),
             ElevatedButton(
-              onPressed: _login,
-              child: const Text('Login'),
+              onPressed:
+                  _isLoading ? null : _login, // Disable button when loading,
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : const Text('Login'),
             ),
             const SizedBox(height: 10.0), // Add some spacing
             GestureDetector(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'AddPatientScreen.dart';
 
 class PatientManagementScreen extends StatelessWidget {
-  const PatientManagementScreen({super.key});
+  final String userId;
+  const PatientManagementScreen({super.key,required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -9,11 +11,16 @@ class PatientManagementScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Manage Patients'),
       ),
-      body: const Center(
-        child: Text(
-          'This is the Patient Management Screen',
-          style: TextStyle(fontSize: 20.0),
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Navigate to a screen to add a new patient
+          // For example:
+          Navigator.push(
+          context,
+           MaterialPageRoute(builder: (context) =>  AddPatientScreen(userId: userId,)),
+           );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

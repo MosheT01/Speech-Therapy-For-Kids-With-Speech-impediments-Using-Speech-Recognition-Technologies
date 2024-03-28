@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'patient_management_screen.dart'; // Import the patient management screen
 import 'schedule_appointment_screen.dart'; // Import the schedule appointment screen
+// Import additional screens and features as needed
 
 class TherapistHomePage extends StatelessWidget {
-  const TherapistHomePage({Key? key}) : super(key: key);
+   final String userId;
+
+   const TherapistHomePage({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +31,7 @@ class TherapistHomePage extends StatelessWidget {
                 // Navigate to the screen for managing patients
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const PatientManagementScreen()),
+                  MaterialPageRoute(builder: (context) => PatientManagementScreen(userId: userId)),
                 );
               },
               child: const Text('Manage Patients'),
@@ -39,18 +42,11 @@ class TherapistHomePage extends StatelessWidget {
                 // Navigate to the screen for scheduling appointments
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ScheduleAppointmentScreen()),
+                  MaterialPageRoute(builder: (context) =>  ScheduleAppointmentScreen(userId: userId,)),
                 );
               },
               child: const Text('Schedule Appointment'),
-            ),
-            const SizedBox(height: 10.0),
-            ElevatedButton(
-              onPressed: () {
-                // Add functionality for additional feature
-              },
-              child: const Text('Additional Feature'),
-            ),
+            )
             // Add more buttons and functionality as needed
           ],
         ),

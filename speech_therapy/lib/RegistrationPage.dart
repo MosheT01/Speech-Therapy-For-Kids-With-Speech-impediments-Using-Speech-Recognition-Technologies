@@ -2,6 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+bool _isLoading = false;
+
+Future<bool> emailIsInUse(String email) async {
+  DatabaseReference databaseReference =
+      FirebaseDatabase.instance.ref().child('users');
+
+  DataSnapshot dataSnapshot;
+  try {
+    dataSnapshot =
+        await databaseReference.once().then((snapshot) => snapshot.snapshot);
+  } catch (e) {
+    return false; // Assuming no error means the email is not in use
+  }
+
+  Map<dynamic, dynamic>? values = dataSnapshot.value as Map<dynamic, dynamic>?;
+
+  if (values != null) {
+    return values.values.any((value) => value['email'] == email);
+  } else {
+    return false;
+  }
+}
+
+Future<bool> validateTherapistCode(String code) async {
+  try {
+    DatabaseReference therapistCodesRef =
+        FirebaseDatabase.instance.ref('therapistCode');
+    DataSnapshot therapistCodesSnapshot =
+        (await therapistCodesRef.once()).snapshot;
+    Object? therapistCode = therapistCodesSnapshot.value;
+
+    // If snapshot or therapistCode is null, or if code doesn't match, return false
+    if (therapistCodesSnapshot.value == null ||
+        therapistCode == null ||
+        therapistCode != int.tryParse(code)) {
+      return false;
+    } else {
+      return true; // Therapist code is valid
+    }
+  } catch (e) {
+    return false; // Error occurred, code is not valid
+  }
+}
+
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
 
@@ -38,6 +82,13 @@ class RegistrationPageState extends State<RegistrationPage> {
     return Stepper(
       currentStep: currentStep,
       onStepContinue: () async {
+        if (_isLoading) {
+          return;
+        }
+        setState(() {
+          _isLoading = true;
+        });
+
         if (currentStep == 0) {
           bool emailUsed = await emailIsInUse(emailController.text);
           final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
@@ -97,6 +148,9 @@ class RegistrationPageState extends State<RegistrationPage> {
             });
           }
         }
+        setState(() {
+          _isLoading = false;
+        });
       },
       onStepCancel: () {
         if (currentStep > 0) {
@@ -228,12 +282,14 @@ class RegistrationPageState extends State<RegistrationPage> {
                     ),
                     const SizedBox(height: 10.0),
                     ElevatedButton(
-                      onPressed: register,
+                      onPressed: _isLoading ? null : () => register(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Click To Register!'),
+                      child: _isLoading
+                          ? const CircularProgressIndicator() // Show loading indicator if isLoading is true
+                          : const Text('Click To Register!'),
                     ),
                   ],
                 ),
@@ -246,6 +302,10 @@ class RegistrationPageState extends State<RegistrationPage> {
   }
 
   void register() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     String email = emailController.text;
     String password = passwordController.text;
 
@@ -259,7 +319,8 @@ class RegistrationPageState extends State<RegistrationPage> {
       String userId = userCredential.user!.uid; // Get the user ID
 
       // Save user email along with user ID to the database
-      _userRef.child(userId).set({'email': email, 'isTherapist': _isTherapist});
+      _userRef.child(userId).set(
+          {'email': email, 'isTherapist': _isTherapist, 'hasTherapist': false});
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -284,12 +345,11 @@ class RegistrationPageState extends State<RegistrationPage> {
             break;
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
+      displayError(errorMessage);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -329,48 +389,5 @@ class RegistrationPageState extends State<RegistrationPage> {
         backgroundColor: Colors.red,
       ),
     );
-  }
-
-  Future<bool> emailIsInUse(String email) async {
-    DatabaseReference databaseReference =
-        FirebaseDatabase.instance.ref().child('users');
-
-    DataSnapshot dataSnapshot;
-    try {
-      dataSnapshot =
-          await databaseReference.once().then((snapshot) => snapshot.snapshot);
-    } catch (e) {
-      return false; // Assuming no error means the email is not in use
-    }
-
-    Map<dynamic, dynamic>? values =
-        dataSnapshot.value as Map<dynamic, dynamic>?;
-
-    if (values != null) {
-      return values.values.any((value) => value['email'] == email);
-    } else {
-      return false;
-    }
-  }
-
-  Future<bool> validateTherapistCode(String code) async {
-    try {
-      DatabaseReference therapistCodesRef =
-          FirebaseDatabase.instance.ref('therapistCode');
-      DataSnapshot therapistCodesSnapshot =
-          (await therapistCodesRef.once()).snapshot;
-      Object? therapistCode = therapistCodesSnapshot.value;
-
-      // If snapshot or therapistCode is null, or if code doesn't match, return false
-      if (therapistCodesSnapshot.value == null ||
-          therapistCode == null ||
-          therapistCode != int.tryParse(code)) {
-        return false;
-      } else {
-        return true; // Therapist code is valid
-      }
-    } catch (e) {
-      return false; // Error occurred, code is not valid
-    }
   }
 }
