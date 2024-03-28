@@ -7,3 +7,4 @@ https://www.youtube.com/watch?v=fOvTtapxa9c&ab_channel=CrashCourse talk about sp
 https://www.youtube.com/watch?v=fLvJ8VdHLA0&ab_channel=IBMTechnology NLP	
 https://www.youtube.com/watch?v=wDWoD1AaLu8&ab_channel=MarcusNg SPEECH TO TEXT IN FLUTTER
 https://www.youtube.com/watch?v=8SQV-B83tPU&ab_channel=KevinStratvert Whisper AI Form ChatGpt
+https://blog.logrocket.com/adding-speech-to-text-text-to-speech-support-flutter-app/
