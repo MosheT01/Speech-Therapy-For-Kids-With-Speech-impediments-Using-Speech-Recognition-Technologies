@@ -6,3 +6,4 @@ https://www.youtube.com/watch?v=D4nhaszNW4o&ab_channel=FlutterGuys basics of fro
 https://www.youtube.com/watch?v=fOvTtapxa9c&ab_channel=CrashCourse talk about speech rec,i found the spectogram super helpful
 https://www.youtube.com/watch?v=fLvJ8VdHLA0&ab_channel=IBMTechnology NLP	
 https://www.youtube.com/watch?v=wDWoD1AaLu8&ab_channel=MarcusNg SPEECH TO TEXT IN FLUTTER
+https://www.youtube.com/watch?v=8SQV-B83tPU&ab_channel=KevinStratvert Whisper AI Form ChatGpt
