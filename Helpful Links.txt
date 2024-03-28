@@ -2,3 +2,5 @@ https://firebase.google.com/docs/flutter/setup?platform=android how to set up fi
 https://firebase.google.com/docs/cli#install-cli-windows how to set up firbase client on pc
 https://www.youtube.com/watch?v=1xipg02Wu8s&ab_channel=Fireship basic of flutter
 https://www.youtube.com/watch?v=D4nhaszNW4o&ab_channel=FlutterGuys basics of front end flutter
+
+https://www.youtube.com/watch?v=fOvTtapxa9c&ab_channel=CrashCourse talk about speech rec,i found the spectogram super helpful
