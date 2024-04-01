@@ -1,2 +1,2 @@
 This The Project That Concluded My Degree In Software Engineering At Azirali.
-The App Aims To Be A Training 
+The App Aims To Be A Theraputic Tool Where A Child Is Taugh How To Speak Clearly While Have Fun Through The Use Of Sound Analysis,Speech Recognition And Gamification.
