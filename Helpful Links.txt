@@ -12,3 +12,11 @@ https://www.youtube.com/watch?v=6altVgTOf9s&ab_channel=Acadaimy speech to text a
 https://www.youtube.com/watch?v=q67z7PTGRi8&pp=ygUgc3BlZWNoIHJlY29nbml0aW9uIGFuZCBzeW50aGVzaXM%3D LONG Auto Speech Rec Overview
 https://www.youtube.com/watch?v=k9xLdXNriEo&pp=ygUgc3BlZWNoIHJlY29nbml0aW9uIGFuZCBzeW50aGVzaXM%3D google cloud tut
 https://www.youtube.com/watch?v=eQfqcYR3HJo&pp=ygUSc3BlZWNoIHJlY29nbml0aW9u speech rec overviews
+
+
+biblography
+https://home.cc.umanitoba.ca/~krussll/phonetics/acoustic/spectrogram-sounds.html
+https://australianlinguistics.com/acoustic-analysis-2/spectrograms/
+https://images.app.goo.gl/JNRd7GmN1TbW8Evj6
+https://images.app.goo.gl/CL21ysn3yfuq8UsHA
+https://www.kaggle.com/search?q=phonetics
