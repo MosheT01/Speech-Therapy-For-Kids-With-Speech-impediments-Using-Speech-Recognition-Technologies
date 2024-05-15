@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:highlight_text/highlight_text.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-
 class SpeechRecPrototype extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -14,7 +13,21 @@ class SpeechRecPrototype extends StatelessWidget {
         primarySwatch: Colors.red,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: SpeechScreen(),
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Confidence: ${(1 * 100.0).toStringAsFixed(1)}%'),
+        ),
+        body: Row(
+          children: [
+            Expanded(
+              child: SpeechScreen(),
+            ),
+            Expanded(
+              child: SpeechScreen(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -77,9 +90,6 @@ class _SpeechScreenState extends State<SpeechScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Confidence: ${(_confidence * 100.0).toStringAsFixed(1)}%'),
-      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: AvatarGlow(
         animate: _isListening,
@@ -115,8 +125,6 @@ class _SpeechScreenState extends State<SpeechScreen> {
       bool available = await _speech.initialize(
         onStatus: (val) => print('onStatus: $val'),
         onError: (val) => print('onError: $val'),
-        
-        
       );
       if (available) {
         setState(() => _isListening = true);
@@ -127,7 +135,8 @@ class _SpeechScreenState extends State<SpeechScreen> {
               _confidence = val.confidence;
             }
           }),
-           localeId: 'he_IL', // Set the localeId to Hebrew
+          //localeId: 'he_IL', // Set the localeId to Hebrew
+          localeId: 'en_US', // Set the localeId to English US
         );
       }
     } else {
