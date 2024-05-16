@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'AddPatientScreen.dart';
 import 'package:firebase_database/firebase_database.dart';
+//TODO: Once A New Patint is added we should refresh the patint mangment list 
 
 class PatientManagementScreen extends StatefulWidget {
   final String userId;
