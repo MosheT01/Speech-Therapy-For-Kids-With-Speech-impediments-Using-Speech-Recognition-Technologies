@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
       Object? isTherapist = isTherapistSnapshot.value;
       return isTherapist;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
@@ -90,13 +90,15 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(
               builder: (context) => TherapistHomePage(userId: userId)),
         );
-      } else {
+      } else if(isTherapist != null && isTherapist == false){
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
               builder: (context) =>
                   ChildHomePage(userId: userId)),
         );
+      }else{
+        displayError("Something Went Wrong While Loging In");
       }
     } catch (e) {
       // Handle login failure here

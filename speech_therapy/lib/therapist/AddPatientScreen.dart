@@ -59,12 +59,12 @@ Future<bool> addPatientToDataBase({
       String userId =
           users.keys.first; // Assuming email is unique, get the first user's ID
       // Update the user's data to set hasTherapist to true
-      await ref.child(userId).update({'hasTherapist': true});
+      await ref.child(userId).update({'hasTherapist': true,'therapistId':therapistId});
 
       // Add the patient's data under the therapist's patients
       DatabaseReference patientsRef =
           FirebaseDatabase.instance.ref("users/$therapistId/patients");
-      await patientsRef.push().set({
+      await patientsRef.child(userId).set({
         'email': email,
         'firstName': firstName,
         'lastName': lastName,

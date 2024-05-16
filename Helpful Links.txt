@@ -4,3 +4,19 @@ https://www.youtube.com/watch?v=1xipg02Wu8s&ab_channel=Fireship basic of flutter
 https://www.youtube.com/watch?v=D4nhaszNW4o&ab_channel=FlutterGuys basics of front end flutter
 
 https://www.youtube.com/watch?v=fOvTtapxa9c&ab_channel=CrashCourse talk about speech rec,i found the spectogram super helpful
+https://www.youtube.com/watch?v=fLvJ8VdHLA0&ab_channel=IBMTechnology NLP	
+https://www.youtube.com/watch?v=wDWoD1AaLu8&ab_channel=MarcusNg SPEECH TO TEXT IN FLUTTER
+https://www.youtube.com/watch?v=8SQV-B83tPU&ab_channel=KevinStratvert Whisper AI Form ChatGpt
+https://blog.logrocket.com/adding-speech-to-text-text-to-speech-support-flutter-app/
+https://www.youtube.com/watch?v=6altVgTOf9s&ab_channel=Acadaimy speech to text and spectograms
+https://www.youtube.com/watch?v=q67z7PTGRi8&pp=ygUgc3BlZWNoIHJlY29nbml0aW9uIGFuZCBzeW50aGVzaXM%3D LONG Auto Speech Rec Overview
+https://www.youtube.com/watch?v=k9xLdXNriEo&pp=ygUgc3BlZWNoIHJlY29nbml0aW9uIGFuZCBzeW50aGVzaXM%3D google cloud tut
+https://www.youtube.com/watch?v=eQfqcYR3HJo&pp=ygUSc3BlZWNoIHJlY29nbml0aW9u speech rec overviews
+
+
+biblography
+https://home.cc.umanitoba.ca/~krussll/phonetics/acoustic/spectrogram-sounds.html
+https://australianlinguistics.com/acoustic-analysis-2/spectrograms/
+https://images.app.goo.gl/JNRd7GmN1TbW8Evj6
+https://images.app.goo.gl/CL21ysn3yfuq8UsHA
+https://www.kaggle.com/search?q=phonetics
