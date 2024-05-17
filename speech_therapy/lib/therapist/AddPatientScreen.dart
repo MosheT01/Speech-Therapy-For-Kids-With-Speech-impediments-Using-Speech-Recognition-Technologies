@@ -1,43 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-//TODO register thhe child in backend...1)make has therapist=true2)make therapist have the child as a patient
-//TODO Further Testing On Adding Patients And Specified Error Message
-//TODO should we add an option to remove patients from therapist?
-//TODO Display Patients In Patient Managing Screen
+//TODO Further Testing On Adding Patients
+
 bool _isLoading = false;
-
-Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
-  DatabaseReference databaseReference =
-      FirebaseDatabase.instance.ref().child('users');
-
-  DataSnapshot dataSnapshot;
-  try {
-    dataSnapshot =
-        await databaseReference.once().then((snapshot) => snapshot.snapshot);
-  } catch (e) {
-    return false; // Assuming no error means the email is not in use
-  }
-
-  Map<dynamic, dynamic>? values = dataSnapshot.value as Map<dynamic, dynamic>?;
-
-  if (values != null) {
-    // Check if any user has the provided email
-    var userWithGivenEmail = values.values
-        .firstWhere((value) => value['email'] == email, orElse: () => null);
-    if (userWithGivenEmail != null) {
-      if (userWithGivenEmail['hasTherapist'] == false &&
-          userWithGivenEmail['isTherapist'] == false) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-  }
-
-  // User with the provided email does not exist or has no therapist
-  return false;
-}
 
 Future<bool> addPatientToDataBase({
   required String therapistId,
@@ -59,7 +25,9 @@ Future<bool> addPatientToDataBase({
       String userId =
           users.keys.first; // Assuming email is unique, get the first user's ID
       // Update the user's data to set hasTherapist to true
-      await ref.child(userId).update({'hasTherapist': true,'therapistId':therapistId});
+      await ref
+          .child(userId)
+          .update({'hasTherapist': true, 'therapistId': therapistId});
 
       // Add the patient's data under the therapist's patients
       DatabaseReference patientsRef =
@@ -108,6 +76,47 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
     );
   }
 
+  Future<bool> emailIsInUseAndDoesntHaveTherapist(String email) async {
+    DatabaseReference databaseReference =
+        FirebaseDatabase.instance.ref().child('users');
+
+    DataSnapshot dataSnapshot;
+    try {
+      dataSnapshot =
+          await databaseReference.once().then((snapshot) => snapshot.snapshot);
+    } catch (e) {
+      return false; // Assuming no error means the email is not in use
+    }
+
+    Map<dynamic, dynamic>? values =
+        dataSnapshot.value as Map<dynamic, dynamic>?;
+
+    if (values != null) {
+      // Check if any user has the provided email
+      var userWithGivenEmail = values.values
+          .firstWhere((value) => value['email'] == email, orElse: () => null);
+      if(userWithGivenEmail == null) {
+        displayError("No Child With Email $email is Registered.");
+        return false;
+      }
+      if (userWithGivenEmail != null) {
+        if (userWithGivenEmail['hasTherapist'] == false &&
+            userWithGivenEmail['isTherapist'] == false) {
+          return true;
+        } else if (userWithGivenEmail['hasTherapist'] == true) {
+          displayError("User with email $email already has a therapist.");
+          return false;
+        } else if (userWithGivenEmail['isTherapist'] == true) {
+          displayError("User with email $email is a therapist.");
+          return false;
+        }
+      }
+    }
+
+    // User with the provided email does not exist or has no therapist
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -145,15 +154,21 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
           });
 
           if (_currentStep == 0) {
-            bool isInUse =
-                await emailIsInUseAndDoesntHaveTherapist(_emailController.text);
-            if (!isInUse) {
+            final RegExp emailRegex =
+                RegExp(r'^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$');
+            if (_emailController.text == '' ||
+                emailRegex.hasMatch(_emailController.text) == false) {
               displayError(
-                  "Either No Child Is Registered To This Email! Or The Child Is Registered To Another Therapist!\nMake Them Register First.");
+                  "Enter A Valid Email!\nEmail Should Be All Lower-Case!");
             } else {
-              setState(() {
-                _currentStep += 1;
-              });
+              bool isInUse = await emailIsInUseAndDoesntHaveTherapist(
+                  _emailController.text);
+              if (!isInUse) {
+              } else {
+                setState(() {
+                  _currentStep += 1;
+                });
+              }
             }
           } else if (_currentStep == 1) {
             if (_firstNameController.text.isEmpty ||
