@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+https://pub.dev/packages/camera/install
 
 class PatientDashboardScreen extends StatelessWidget {
   final String userId;
@@ -18,13 +19,13 @@ class PatientDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Patient Dashboard'),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Patient Details:',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
@@ -44,82 +45,45 @@ class PatientDashboardScreen extends StatelessWidget {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  _editPatientDetails(context);
+                  // Add your functionality here, for example, navigating to another screen or performing an action.
                 },
                 child: Text('Edit Patient Details'),
               ),
-              SizedBox(height: 20),
-              Text(
-                'Treatment Plan:',
+              //add devider
+              Divider(
+                color: Colors.black,
+                thickness: 1,
+              ),
+              //header that says "Patient Video Exercises"
+              const Text(
+                'Patient Video Exercises:',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 10),
-              _buildTreatmentPlanSection(),
+              ListView.builder(
+                shrinkWrap: true,
+                itemCount: 3,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text('Video Exercise ${index + 1}'),
+                    subtitle: Text('Video Placeholder'),
+                    leading: Icon(Icons.video_library),
+                    onTap: () {
+                      // Add your functionality here, for example, playing the video.
+                    },
+                  );
+                },
+              ),
+              ElevatedButton(
+              onPressed: () {
+                // Add your functionality here, for example, navigating to another screen or performing an action.
+              },
+              child: const Text('Add Video Exercise'),
+            ),
             ],
+          
           ),
         ),
       ),
-    );
-  }
-
-  void _editPatientDetails(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Edit Patient Details'),
-          content: Text('This is where you can edit patient details.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildTreatmentPlanSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          title: Text(
-            'Milestones:',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ListTile(
-          title: Text('1. Start rehabilitation program'),
-          subtitle: Text('Status: In progress'),
-        ),
-        ListTile(
-          title: Text('2. Complete first set of exercises'),
-          subtitle: Text('Status: Pending'),
-        ),
-        ListTile(
-          title: Text('3. Schedule follow-up appointment'),
-          subtitle: Text('Status: Pending'),
-        ),
-        SizedBox(height: 20),
-        ListTile(
-          title: Text(
-            'Exercises:',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ListTile(
-          title: Text('Exercise 1: Knee Strengthening'),
-          subtitle: Text('Sets: 3, Reps: 10'),
-        ),
-        ListTile(
-          title: Text('Exercise 2: Shoulder Stretch'),
-          subtitle: Text('Sets: 2, Reps: 12'),
-        ),
-      ],
     );
   }
 }
