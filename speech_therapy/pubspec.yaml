@@ -43,6 +43,8 @@ dependencies:
   microphone: ^0.1.0
   avatar_glow: ^3.0.1
   highlight_text: ^1.7.0
+  camera: ^0.11.0
+  video_player: ^2.8.6
   
 
   # Specify your databaseURL here
