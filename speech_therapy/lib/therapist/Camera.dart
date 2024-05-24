@@ -25,7 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //this page was lifted from the example of the offical flutter camera plugin that is open source!
-import 'dart:html' as html;
+import 'package:universal_html/html.dart' as html;
 import 'dart:async';
 import 'dart:io';
 
@@ -449,6 +449,12 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
             // Upload the blob to Firebase Storage
             await ref.putBlob(blob);
+          }else{
+             var ref =
+                firebase_storage.FirebaseStorage.instance.ref().child(fileName);
+
+            // Upload the blob to Firebase Storage
+            await ref.putFile(File(file.path));
           }
 
           showInSnackBar('Video uploaded to Firebase Storage');
