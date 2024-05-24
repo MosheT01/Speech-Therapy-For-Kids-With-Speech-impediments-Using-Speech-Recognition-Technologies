@@ -1,3 +1,4 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 //TODO Make The Patient Details Editable
 //TODO Add Video Exercise Functionality
@@ -14,11 +15,9 @@ class PatientDashboardScreen extends StatelessWidget {
     required this.patientData,
     required this.userId,
   }) : super(key: key);
-  
 
   @override
   Widget build(BuildContext context) {
-    
     return Scaffold(
       appBar: AppBar(
         title: Text('Patient Dashboard'),
@@ -78,22 +77,27 @@ class PatientDashboardScreen extends StatelessWidget {
                 },
               ),
               ElevatedButton(
-              onPressed: () {
-                //navigate to camera screen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CameraApp()),
-                );
-                
+                onPressed: () async {
+                  await availableCameras().then(
+                    (value) {
+                      print(value); // Print the value before navigating
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CameraExampleHome(
+                            camera: value,
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 },
-              child: const Text('Add Video Exercise'),
-            ),
+                child: const Text('Add Video Exercise'),
+              ),
             ],
-          
           ),
         ),
       ),
     );
   }
-  
 }
