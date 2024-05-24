@@ -79,6 +79,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
   late stt.SpeechToText _speech;
   bool _isListening = false;
   String _text = 'Press the button and start speaking';
+  // ignore: unused_field
   double _confidence = 1.0;
 
   @override
