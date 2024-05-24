@@ -12,3 +12,8 @@ speech_therapy/linux/flutter/generated_plugins.cmake
 speech_therapy/macos/Flutter/GeneratedPluginRegistrant.swift
 speech_therapy/windows/flutter/generated_plugin_registrant.cc
 speech_therapy/windows/flutter/generated_plugins.cmake
+speech_therapy/linux/flutter/generated_plugin_registrant.cc
+speech_therapy/linux/flutter/generated_plugins.cmake
+speech_therapy/macos/Flutter/GeneratedPluginRegistrant.swift
+speech_therapy/windows/flutter/generated_plugin_registrant.cc
+speech_therapy/windows/flutter/generated_plugins.cmake
