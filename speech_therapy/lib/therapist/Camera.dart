@@ -24,7 +24,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//this page was lifted from the example of the offical flutter camera plugin that is open source!
+//part of this page was lifted from the example of the offical flutter camera plugin that is open source!
 import 'package:universal_html/html.dart' as html;
 import 'dart:async';
 import 'dart:io';
@@ -433,39 +433,39 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       if (file != null) {
         showInSnackBar('Video recorded to ${file.path}');
         videoFile = file;
-        _startVideoPlayer(); // Upload the video to Firebase Storage
-        try {
-          String fileName =
-              'video_${DateTime.now().millisecondsSinceEpoch}.mp4'; // Generate a unique filename
-
-          // Check if the platform is web
-          if (kIsWeb) {
-            // Create a blob from the file
-            var blob = html.Blob([await file.readAsBytes()], 'video/mp4');
-
-            // Create a reference to the storage location
-            var ref =
-                firebase_storage.FirebaseStorage.instance.ref().child(fileName);
-
-            // Upload the blob to Firebase Storage
-            await ref.putBlob(blob);
-          }else{
-             var ref =
-                firebase_storage.FirebaseStorage.instance.ref().child(fileName);
-
-            // Upload the blob to Firebase Storage
-            await ref.putFile(File(file.path));
-          }
-
-          showInSnackBar('Video uploaded to Firebase Storage');
-        } catch (e) {
-          print(e);
-          showInSnackBar('Failed to upload video: $e');
-        }
+        //_startVideoPlayer();
+        // Upload the video to Firebase Storage
+        await uploadVidToFirebaseStorage(file);
       } else {
         showInSnackBar('Failed to stop video recording');
       }
     });
+  }
+
+  Future<void> uploadVidToFirebaseStorage(XFile file) async {
+    try {
+      String fileName =
+          'video_${DateTime.now().millisecondsSinceEpoch}.mp4'; // Generate a unique filename
+
+      // Create a reference to the storage location
+      var ref = firebase_storage.FirebaseStorage.instance.ref().child(fileName);
+
+      // Check if the platform is web
+      if (kIsWeb) {
+        // Create a blob from the file
+        var blob = html.Blob([await file.readAsBytes()], 'video/mp4');
+
+        // Upload the blob to Firebase Storage
+        await ref.putBlob(blob);
+      } else {
+        // Upload the blob to Firebase Storage
+        await ref.putFile(File(file.path));
+      }
+
+      showInSnackBar('Video uploaded to Firebase Storage');
+    } catch (e) {
+      showInSnackBar('Failed to upload video: $e');
+    }
   }
 
   void onPauseButtonPressed() {

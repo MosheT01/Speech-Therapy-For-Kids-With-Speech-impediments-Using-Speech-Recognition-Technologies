@@ -53,11 +53,10 @@ class PatientDashboardScreen extends StatelessWidget {
                 child: Text('Edit Patient Details'),
               ),
               //add devider
-              Divider(
+              const Divider(
                 color: Colors.black,
                 thickness: 1,
               ),
-              //header that says "Patient Video Exercises"
               const Text(
                 'Patient Video Exercises:',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -80,7 +79,6 @@ class PatientDashboardScreen extends StatelessWidget {
                 onPressed: () async {
                   await availableCameras().then(
                     (value) {
-                      print(value); // Print the value before navigating
                       Navigator.push(
                         context,
                         MaterialPageRoute(
