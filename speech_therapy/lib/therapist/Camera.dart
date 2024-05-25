@@ -25,6 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //part of this page was lifted from the example of the offical flutter camera plugin that is open source!
+import 'package:firebase_database/firebase_database.dart';
 import 'package:universal_html/html.dart' as html;
 import 'dart:async';
 import 'dart:io';
@@ -41,9 +42,12 @@ List<CameraDescription> cameras = <CameraDescription>[];
 /// Camera example home widget.
 class CameraExampleHome extends StatefulWidget {
   final List<CameraDescription>? camera;
+  final String userId;
+  final String patientKey;
 
   /// Default Constructor
-  CameraExampleHome({this.camera, super.key}) {
+  CameraExampleHome(
+      {this.camera, required this.userId, required this.patientKey, Key? key}) {
     cameras = camera!;
   }
 
@@ -448,7 +452,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
           'video_${DateTime.now().millisecondsSinceEpoch}.mp4'; // Generate a unique filename
 
       // Create a reference to the storage location
-      var ref = firebase_storage.FirebaseStorage.instance.ref().child(fileName);
+      var ref = firebase_storage.FirebaseStorage.instance
+          .ref()
+          .child('/${widget.userId}/${widget.patientKey}/$fileName');
 
       // Check if the platform is web
       if (kIsWeb) {
@@ -461,6 +467,17 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         // Upload the blob to Firebase Storage
         await ref.putFile(File(file.path));
       }
+      //get the download url
+      String downloadURL = await ref.getDownloadURL();
+      //save the download url to the database
+      DatabaseReference databaseReference = FirebaseDatabase.instance
+          .ref('users/${widget.userId}/patients/${widget.patientKey}/videos')
+          .push();
+      databaseReference.set(downloadURL);
+      //save the downlad url to under the therapist as well could be usefull when if we give the therapist the option to choose a video he recoreded for other patients
+      // DatabaseReference databaseReferenceTherapist =
+      //     FirebaseDatabase.instance.ref('users/${widget.userId}/videos').push();
+      // databaseReferenceTherapist.set(downloadURL);
 
       showInSnackBar('Video uploaded to Firebase Storage');
     } catch (e) {

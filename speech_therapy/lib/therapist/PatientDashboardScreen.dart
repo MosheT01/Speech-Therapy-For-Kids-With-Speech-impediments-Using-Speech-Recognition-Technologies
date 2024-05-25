@@ -84,6 +84,8 @@ class PatientDashboardScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (context) => CameraExampleHome(
                             camera: value,
+                            userId: userId,
+                            patientKey: patientKey,
                           ),
                         ),
                       );
