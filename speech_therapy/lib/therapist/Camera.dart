@@ -435,22 +435,26 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         setState(() {});
       }
       if (file != null) {
-        showInSnackBar('Video recorded to ${file.path}');
         videoFile = file;
+
+        // If the recorded video is intended to be displayed after recording,
         //_startVideoPlayer();
+
+        String fileName =
+            'video_${DateTime.now().millisecondsSinceEpoch}'; // Generate a unique filename
+
+        // Show the metadata dialog
+        _showMetadataDialog(file, fileName);
         // Upload the video to Firebase Storage
-        await uploadVidToFirebaseStorage(file);
+        await uploadVidToFirebaseStorage(file, fileName);
       } else {
         showInSnackBar('Failed to stop video recording');
       }
     });
   }
 
-  Future<void> uploadVidToFirebaseStorage(XFile file) async {
+  Future<void> uploadVidToFirebaseStorage(XFile file, String fileName) async {
     try {
-      String fileName =
-          'video_${DateTime.now().millisecondsSinceEpoch}.mp4'; // Generate a unique filename
-
       // Create a reference to the storage location
       var ref = firebase_storage.FirebaseStorage.instance
           .ref()
@@ -470,14 +474,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       //get the download url
       String downloadURL = await ref.getDownloadURL();
       //save the download url to the database
-      DatabaseReference databaseReference = FirebaseDatabase.instance
-          .ref('users/${widget.userId}/patients/${widget.patientKey}/videos')
-          .push();
-      databaseReference.set(downloadURL);
+      DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
+          'users/${widget.userId}/patients/${widget.patientKey}/videos/$fileName');
+      databaseReference.update({'downloadURL': downloadURL});
+
       //save the downlad url to under the therapist as well could be usefull when if we give the therapist the option to choose a video he recoreded for other patients
       // DatabaseReference databaseReferenceTherapist =
       //     FirebaseDatabase.instance.ref('users/${widget.userId}/videos').push();
-      // databaseReferenceTherapist.set(downloadURL);
+      // databaseReferenceTherapist.update(downloadURL);
 
       showInSnackBar('Video uploaded to Firebase Storage');
     } catch (e) {
@@ -569,6 +573,19 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     }
   }
 
+  Future<void> _showMetadataDialog(XFile videoFile, String fileName) async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return MetadataDialog(
+          userId: widget.userId,
+          patientKey: widget.patientKey,
+          fileName: fileName,
+        );
+      },
+    );
+  }
+
   Future<void> _startVideoPlayer() async {
     if (videoFile == null) {
       return;
@@ -603,5 +620,81 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   void _showCameraException(CameraException e) {
     _logError(e.code, e.description);
     showInSnackBar('Error: ${e.code}\n${e.description}');
+  }
+}
+
+class MetadataDialog extends StatefulWidget {
+  final String userId;
+  final String patientKey;
+  final String fileName;
+
+  MetadataDialog(
+      {required this.userId, required this.patientKey, required this.fileName});
+
+  @override
+  _MetadataDialogState createState() => _MetadataDialogState();
+}
+
+class _MetadataDialogState extends State<MetadataDialog> {
+  String word = '';
+  double difficulty = 5.0;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Enter Video Metadata'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Word'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a word';
+                }
+                return null;
+              },
+              onChanged: (value) {
+                word = value;
+              },
+            ),
+            const Text('Difficulty:'),
+            Slider(
+              value: difficulty,
+              min: 1.0,
+              max: 10.0,
+              divisions: 9,
+              label: difficulty.round().toString(),
+              onChanged: (value) {
+                setState(() {
+                  difficulty = value;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Save'),
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              // Save the metadata to Firebase Realtime Database
+              DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
+                  'users/${widget.userId}/patients/${widget.patientKey}/videos/${widget.fileName}');
+              databaseReference.update({
+                'word': word,
+                'difficulty': difficulty.toInt(),
+              });
+
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      ],
+    );
   }
 }
