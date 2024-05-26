@@ -25,6 +25,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //part of this page was lifted from the example of the offical flutter camera plugin that is open source!
+
+//TODO We Should Let The User Preview The File Before Uploading it
 import 'package:firebase_database/firebase_database.dart';
 import 'package:universal_html/html.dart' as html;
 import 'dart:async';
@@ -444,9 +446,36 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             'video_${DateTime.now().millisecondsSinceEpoch}'; // Generate a unique filename
 
         // Show the metadata dialog
-        _showMetadataDialog(file, fileName);
+        await _showMetadataDialog(file, fileName);
+        //show rotating loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  Text(
+                    'The Video Is Being Uploaded...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      decoration: TextDecoration.none,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
         // Upload the video to Firebase Storage
         await uploadVidToFirebaseStorage(file, fileName);
+        Navigator.pop(context);
+        Navigator.pop(context);
+        //navigate back
       } else {
         showInSnackBar('Failed to stop video recording');
       }
