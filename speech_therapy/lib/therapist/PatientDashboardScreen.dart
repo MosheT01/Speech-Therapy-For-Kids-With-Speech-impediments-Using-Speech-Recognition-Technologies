@@ -29,7 +29,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     fetchVideoExercises();
   }
 
-  Future<void> fetchVideoExercises() async {
+  Future<List<Map<String, dynamic>>> fetchVideoExercises() async {
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
         .child(widget.userId)
@@ -47,20 +47,19 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           Map<String, dynamic> videoData = Map.from(value);
           videos.add(videoData);
         });
-        setState(() {
-          videoExercises = videos;
-        });
+        return videos;
       }
     } catch (e) {
-      print('Error fetching video exercises: $e');
+      debugPrint('Error fetching video exercises: $e');
     }
+    return [];
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Patient Dashboard'),
+        title: const Text('Patient Dashboard'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -71,20 +70,20 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               'Patient Details:',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
               'Name: ${widget.patientData['firstName']} ${widget.patientData['lastName']}',
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
             Text(
               'Age: ${widget.patientData['age']}',
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
             Text(
               'Gender: ${widget.patientData['gender']}',
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 // Add your functionality here, for example, navigating to another screen or performing an action.
@@ -99,37 +98,41 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               'Patient Video Exercises:',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            Expanded(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: videoExercises.length,
-                itemBuilder: (context, index) {
-                  Map<String, dynamic>? video =
-                      videoExercises[index]; // Adding null safety
-                  // Checking if video is not null
-                  return ListTile(
-                    title: Text(
-                        "${video['word'] ?? 'Unknown'}"), // Adding null check for 'word' property
-                    subtitle: Text(
-                        'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}' // Adding null check for 'difficulty' property
-                        ),
-                    leading: Icon(Icons.video_library),
-                    onTap: () {
-                      // Add your functionality here, for example, navigating to the download URL.
-                      String? downloadURL =
-                          video['downloadURL']; // Adding null safety
-                      if (downloadURL != null) {
-                        // Adding null check
-                        // Navigate to the download URL
-                        _launchURL(downloadURL);
-                      } else {
-                        // Handle case where downloadURL is null
-                        print('Download URL is null for video at index $index');
-                      }
-                    },
+            FutureBuilder(
+              future: fetchVideoExercises(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator();
+                } else if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                } else {
+                  videoExercises = snapshot.data ?? [];
+                  return Expanded(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: videoExercises.length,
+                      itemBuilder: (context, index) {
+                        Map<String, dynamic>? video = videoExercises[index];
+                        return ListTile(
+                          title: Text("${video['word'] ?? 'Unknown'}"),
+                          subtitle: Text(
+                              'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}'),
+                          leading: const Icon(Icons.video_library),
+                          onTap: () {
+                            String? downloadURL = video['downloadURL'];
+                            if (downloadURL != null) {
+                              _launchURL(downloadURL);
+                            } else {
+                              debugPrint(
+                                  'Download URL is null for video at index $index');
+                            }
+                          },
+                        );
+                      },
+                    ),
                   );
-                },
-              ),
+                }
+              },
             ),
             ElevatedButton(
               onPressed: () async {
