@@ -45,8 +45,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         List<Map<String, dynamic>> videos = [];
         values.forEach((key, value) {
           Map<String, dynamic> videoData = Map.from(value);
+          videoData['key'] = key; // Add the video key to the video data
           videos.add(videoData);
         });
+
         return videos;
       }
     } catch (e) {
@@ -102,11 +104,16 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               future: fetchVideoExercises(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator();
-                } else if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
+                  if (videoExercises.isEmpty) {
+                    return Text('No videos found for this patient');
+                  } else {
+                    return CircularProgressIndicator();
+                  }
                 } else {
                   videoExercises = snapshot.data ?? [];
+                  //sort the video exercises by key
+                  videoExercises.sort((a, b) => a['key'].compareTo(b['key']));
+
                   return Expanded(
                     child: ListView.builder(
                       shrinkWrap: true,
@@ -147,7 +154,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           patientKey: widget.patientKey,
                         ),
                       ),
-                    );
+                    ).then((_) {
+                      setState(
+                          () {}); // Refresh the UI after returning from the CameraExampleHome page
+                    });
                   },
                 );
               },
