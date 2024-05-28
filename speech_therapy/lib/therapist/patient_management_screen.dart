@@ -34,6 +34,8 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   }
 
   Future<void> fetchPatients() async {
+    filteredPatients.clear();
+    patients.clear();
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
         .child(widget.userId)
@@ -52,6 +54,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         });
         // Set filtered patients initially to all patients
         filteredPatients = patients;
+        //filter the  patients
       }
     } catch (e) {
       displayError(
@@ -110,19 +113,28 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                           itemCount: filteredPatients.length,
                           itemBuilder: (context, index) {
                             return GestureDetector(
-                              onTap: () {
-                                //navigate to patinet dashboard screen
-                                Navigator.push(
+                              onTap: () async {
+                                // Navigate to patient dashboard screen
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
                                         PatientDashboardScreen(
                                       userId: widget.userId,
-                                      patientKey: filteredPatients[index]['key'],
-                                      patientData: filteredPatients[index],
+                                      patientKey: filteredPatients[index]
+                                          ['key'],
                                     ),
                                   ),
                                 );
+
+                                // Refresh the list
+                                setState(() {
+                                  isLoading = true;
+                                });
+                                await fetchPatients();
+                                setState(() {
+                                  isLoading = false;
+                                });
                               },
                               child: Column(
                                 children: [
@@ -142,7 +154,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                                               : Colors.pinkAccent),
                                     ),
                                     title: Text(
-                                      '${filteredPatients[index]['firstName']}${filteredPatients[index]['lastName']}',
+                                      '${filteredPatients[index]['firstName']} ${filteredPatients[index]['lastName']}',
                                       style: const TextStyle(
                                           fontWeight: FontWeight.bold),
                                     ),
@@ -169,6 +181,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
               builder: (context) => AddPatientScreen(userId: widget.userId),
             ),
           );
+          fetchPatients();
         },
         child: const Icon(Icons.add),
       ),
