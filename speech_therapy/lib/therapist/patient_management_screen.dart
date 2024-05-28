@@ -84,94 +84,87 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
       appBar: AppBar(
         title: const Text('Manage Patients'),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: TextField(
-                    controller: searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Search patients',
-                      prefixIcon: Icon(Icons.search),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: searchController,
+              decoration: const InputDecoration(
+                labelText: 'Search patients',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (value) {
+                filterPatients(value);
+              },
+            ),
+          ),
+          Expanded(
+            child: filteredPatients.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No patients found.',
+                      style: TextStyle(fontSize: 18),
                     ),
-                    onChanged: (value) {
-                      filterPatients(value);
+                  )
+                : ListView.builder(
+                    itemCount: filteredPatients.length,
+                    itemBuilder: (context, index) {
+                      return GestureDetector(
+                        onTap: () async {
+                          // Navigate to patient dashboard screen
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PatientDashboardScreen(
+                                userId: widget.userId,
+                                patientKey: filteredPatients[index]['key'],
+                              ),
+                            ),
+                          );
+
+                          // Refresh the list
+                          setState(() {
+                            isLoading = true;
+                          });
+                          await fetchPatients();
+                          setState(() {
+                            isLoading = false;
+                          });
+                        },
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                //if patient is Male, display person icon with color blue, else display person icon with color pink
+                                child: Icon(
+                                    filteredPatients[index]['gender'] == 'Male'
+                                        ? Icons.man
+                                        : Icons.woman,
+                                    color: filteredPatients[index]['gender'] ==
+                                            'Male'
+                                        ? Colors.blue
+                                        : Colors.pinkAccent),
+                              ),
+                              title: Text(
+                                '${filteredPatients[index]['firstName']} ${filteredPatients[index]['lastName']}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Text(
+                                  'Age: ${filteredPatients[index]['age']}'),
+                              trailing: const Icon(Icons.arrow_forward_ios),
+                            ),
+                            const Divider(), // Add divider
+                          ],
+                        ),
+                      );
                     },
                   ),
-                ),
-                Expanded(
-                  child: filteredPatients.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No patients found.',
-                            style: TextStyle(fontSize: 18),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: filteredPatients.length,
-                          itemBuilder: (context, index) {
-                            return GestureDetector(
-                              onTap: () async {
-                                // Navigate to patient dashboard screen
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        PatientDashboardScreen(
-                                      userId: widget.userId,
-                                      patientKey: filteredPatients[index]
-                                          ['key'],
-                                    ),
-                                  ),
-                                );
-
-                                // Refresh the list
-                                setState(() {
-                                  isLoading = true;
-                                });
-                                await fetchPatients();
-                                setState(() {
-                                  isLoading = false;
-                                });
-                              },
-                              child: Column(
-                                children: [
-                                  ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: Colors.grey,
-                                      //if patient is Male, display person icon with color blue, else display person icon with color pink
-                                      child: Icon(
-                                          filteredPatients[index]['gender'] ==
-                                                  'Male'
-                                              ? Icons.man
-                                              : Icons.woman,
-                                          color: filteredPatients[index]
-                                                      ['gender'] ==
-                                                  'Male'
-                                              ? Colors.blue
-                                              : Colors.pinkAccent),
-                                    ),
-                                    title: Text(
-                                      '${filteredPatients[index]['firstName']} ${filteredPatients[index]['lastName']}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    subtitle: Text(
-                                        'Age: ${filteredPatients[index]['age']}'),
-                                    trailing:
-                                        const Icon(Icons.arrow_forward_ios),
-                                  ),
-                                  const Divider(), // Add divider
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // Navigate to add patient screen

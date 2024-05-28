@@ -21,8 +21,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   late Map<String, dynamic> patientData = {};
 
   List<Map<String, dynamic>> videoExercises = [];
+
+  bool isLoading = false;
+
   //fetch patient data from the database
   Future<void> fetchPatientData() async {
+    setState(() {
+      isLoading = true;
+    });
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
         .child(widget.userId)
@@ -36,10 +42,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       if (value != null) {
         setState(() {
           patientData = Map<String, dynamic>.from(value);
+          isLoading = false;
         });
       }
     } catch (e) {
       debugPrint('Error fetching patient data: $e');
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -227,20 +237,29 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               'Patient Details:',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Name: ${patientData['firstName']} ${patientData['lastName']}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            Text(
-              'Age: ${patientData['age']}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            Text(
-              'Gender: ${patientData['gender']}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
+            isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      Text(
+                        'Name: ${patientData['firstName']} ${patientData['lastName']}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      Text(
+                        'Age: ${patientData['age']}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      Text(
+                        'Gender: ${patientData['gender']}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
             ElevatedButton(
               onPressed: () {
                 setState(() {
@@ -273,28 +292,33 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   videoExercises.sort((a, b) => a['key'].compareTo(b['key']));
 
                   return Expanded(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: videoExercises.length,
-                      itemBuilder: (context, index) {
-                        Map<String, dynamic>? video = videoExercises[index];
-                        return ListTile(
-                          title: Text("${video['word'] ?? 'Unknown'}"),
-                          subtitle: Text(
-                              'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}'),
-                          leading: const Icon(Icons.video_library),
-                          onTap: () {
-                            String? downloadURL = video['downloadURL'];
-                            if (downloadURL != null) {
-                              _launchURL(downloadURL);
-                            } else {
-                              debugPrint(
-                                  'Download URL is null for video at index $index');
-                            }
-                          },
-                        );
-                      },
-                    ),
+                    child: isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: videoExercises.length,
+                            itemBuilder: (context, index) {
+                              Map<String, dynamic>? video =
+                                  videoExercises[index];
+                              return ListTile(
+                                title: Text("${video['word'] ?? 'Unknown'}"),
+                                subtitle: Text(
+                                    'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}'),
+                                leading: const Icon(Icons.video_library),
+                                onTap: () {
+                                  String? downloadURL = video['downloadURL'];
+                                  if (downloadURL != null) {
+                                    _launchURL(downloadURL);
+                                  } else {
+                                    debugPrint(
+                                        'Download URL is null for video at index $index');
+                                  }
+                                },
+                              );
+                            },
+                          ),
                   );
                 }
               },
