@@ -345,6 +345,24 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               },
               child: const Text('Add Video Exercise'),
             ),
+            //add devidor
+            const Divider(
+              color: Colors.black,
+              thickness: 1,
+            ),
+            //schedule appointment section
+            const Text(
+              'Schedule Appointment:',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+
+            ElevatedButton(
+              onPressed: () {
+                // Implement your logic for scheduling an appointment here
+              },
+              child: const Text('Schedule Appointment'),
+            ),
           ],
         ),
       ),
