@@ -48,6 +48,7 @@ dependencies:
   url_launcher: ^6.2.6
   firebase_storage: ^11.7.6
   universal_html: ^2.2.4
+  chewie: ^1.8.1
 
   # Specify your databaseURL here
   # databaseURL: "https://speechtherapyapp-88a94-default-rtdb.asia-southeast1.firebasedatabase.app/"
