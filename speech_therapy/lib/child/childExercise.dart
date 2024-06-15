@@ -28,12 +28,22 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.network(widget.videoUrl)
+    _initializeVideoPlayer();
+    _initializeSpeechToText();
+  }
+
+  void _initializeVideoPlayer() {
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
       ..initialize().then((_) {
         setState(() {
           _isLoading = false;
         });
         _controller.play();
+      }).catchError((error) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorDialog('Error loading video: $error');
       });
     _chewieController = ChewieController(
       videoPlayerController: _controller,
@@ -41,7 +51,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       autoPlay: true,
       looping: false,
     );
+  }
 
+  void _initializeSpeechToText() {
     _speech = stt.SpeechToText();
   }
 
@@ -70,13 +82,33 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
           onResult: (val) => setState(() {
             _recognizedText = val.recognizedWords;
           }),
-          localeId: 'en_US', // Set the localeId to English US
+          localeId: 'en_US',
         );
       }
     } else {
       setState(() => _isListening = false);
       _speech.stop();
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -93,7 +125,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                   aspectRatio: _controller.value.aspectRatio,
                   child: Chewie(controller: _chewieController),
                 ),
-                Padding(padding: const EdgeInsets.all(10.0)),
+                SizedBox(height: 10),
                 Text('What Did You Hear?'),
                 FloatingActionButton(
                   onPressed: _listen,
@@ -159,7 +191,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
         : videoTitleLower.length.toDouble();
 
     double similarity = 1.0 - (editDistance / maxLen);
-    print(similarity.toStringAsFixed(2)); // Print similarity for debugging
+    print(similarity.toStringAsFixed(2));
     return similarity;
   }
 }
