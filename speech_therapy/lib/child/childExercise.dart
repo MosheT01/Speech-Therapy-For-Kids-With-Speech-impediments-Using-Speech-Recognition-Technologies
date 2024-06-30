@@ -119,38 +119,40 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: Chewie(controller: _chewieController),
-                ),
-                SizedBox(height: 10),
-                Text('What Did You Hear?'),
-                FloatingActionButton(
-                  onPressed: _listen,
-                  child: Icon(_isListening ? Icons.mic : Icons.mic_none),
-                ),
-                _recognizedText.isNotEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Recognized Text: $_recognizedText',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(width: 10),
-                            _calculateSimilarity() >= 0.5
-                                ? Icon(Icons.check, color: Colors.green)
-                                : Icon(Icons.close, color: Colors.red),
-                            Text(widget.videoTitle.toLowerCase()),
-                          ],
-                        ),
-                      )
-                    : SizedBox(),
-              ],
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: _controller.value.aspectRatio,
+                    child: Chewie(controller: _chewieController),
+                  ),
+                  SizedBox(height: 10),
+                  Text('What Did You Hear?'),
+                  FloatingActionButton(
+                    onPressed: _listen,
+                    child: Icon(_isListening ? Icons.mic : Icons.mic_none),
+                  ),
+                  _recognizedText.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Recognized Text: $_recognizedText',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(width: 10),
+                              _calculateSimilarity() >= 0.5
+                                  ? Icon(Icons.check, color: Colors.green)
+                                  : Icon(Icons.close, color: Colors.red),
+                              Text(widget.videoTitle.toLowerCase()),
+                            ],
+                          ),
+                        )
+                      : SizedBox(),
+                ],
+              ),
             ),
     );
   }
