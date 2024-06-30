@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:speech_therapy/child/Games/htmlDemo.dart';
 import 'childTrainPage.dart';
 
 //fetch this patient's therapist id
@@ -53,7 +54,13 @@ class ChildHomePage extends StatelessWidget {
             const SizedBox(height: 10.0),
             ElevatedButton(
               onPressed: () {
-                //
+                //navigate to the htmlDemo screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WebviewMobileApplication(),
+                  ),
+                );
               },
               child: const Text('Lets Play Games!'),
             ),
