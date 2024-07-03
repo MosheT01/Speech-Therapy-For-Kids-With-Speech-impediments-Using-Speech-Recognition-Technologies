@@ -50,6 +50,8 @@ dependencies:
   universal_html: ^2.2.4
   chewie: ^1.8.1
   random_color: ^1.0.6-nullsafety
+  provider: ^6.1.2
+  flip_card: ^0.7.0
 
   # Specify your databaseURL here
   # databaseURL: "https://speechtherapyapp-88a94-default-rtdb.asia-southeast1.firebasedatabase.app/"

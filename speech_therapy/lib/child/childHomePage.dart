@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:speech_therapy/child/Games/tapTheShapeGame.dart';
+import 'package:speech_therapy/child/Games/MissionAdventure.dart';
 import 'childTrainPage.dart';
 
 //fetch this patient's therapist id
@@ -54,12 +54,12 @@ class ChildHomePage extends StatelessWidget {
             const SizedBox(height: 10.0),
             ElevatedButton(
               onPressed: () {
-                //navigate to the screen for jigsaw
+                //navigate to the screen for Mission Adventure
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => TapTheShapeGame(),
-                  ),
+                      //builder: (context) => TapTheShapeGame(),
+                      builder: (context) => MemoryPairMatchingGame()),
                 );
               },
               child: const Text('Lets Play Games!'),
