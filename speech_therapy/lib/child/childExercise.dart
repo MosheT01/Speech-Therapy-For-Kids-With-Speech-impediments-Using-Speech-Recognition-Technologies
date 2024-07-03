@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:lottie/lottie.dart';
 
 class VideoPlaybackPage extends StatefulWidget {
   final String videoUrl;
@@ -18,12 +19,11 @@ class VideoPlaybackPage extends StatefulWidget {
 class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
   late VideoPlayerController _controller;
   late ChewieController _chewieController;
-  final TextEditingController _textController = TextEditingController();
-  bool _isLoading = true;
-
   late stt.SpeechToText _speech;
   bool _isListening = false;
+  bool _isLoading = true;
   String _recognizedText = '';
+  bool _showCelebration = false;
 
   @override
   void initState() {
@@ -45,6 +45,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
         });
         _showErrorDialog('Error loading video: $error');
       });
+
     _chewieController = ChewieController(
       videoPlayerController: _controller,
       aspectRatio: _controller.value.aspectRatio,
@@ -61,13 +62,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
   void dispose() {
     _controller.dispose();
     _chewieController.dispose();
-    _textController.dispose();
     super.dispose();
-  }
-
-  void _replayVideo() {
-    _controller.seekTo(Duration.zero);
-    _controller.play();
   }
 
   void _listen() async {
@@ -81,6 +76,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
         _speech.listen(
           onResult: (val) => setState(() {
             _recognizedText = val.recognizedWords;
+            if (_calculateSimilarity() >= 0.5) {
+              _showCelebrationAnimation();
+            }
           }),
           localeId: 'en_US',
         );
@@ -111,50 +109,31 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.videoTitle),
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  AspectRatio(
-                    aspectRatio: _controller.value.aspectRatio,
-                    child: Chewie(controller: _chewieController),
-                  ),
-                  SizedBox(height: 10),
-                  Text('What Did You Hear?'),
-                  FloatingActionButton(
-                    onPressed: _listen,
-                    child: Icon(_isListening ? Icons.mic : Icons.mic_none),
-                  ),
-                  _recognizedText.isNotEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Recognized Text: $_recognizedText',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              SizedBox(width: 10),
-                              _calculateSimilarity() >= 0.5
-                                  ? Icon(Icons.check, color: Colors.green)
-                                  : Icon(Icons.close, color: Colors.red),
-                              Text(widget.videoTitle.toLowerCase()),
-                            ],
-                          ),
-                        )
-                      : SizedBox(),
-                ],
-              ),
-            ),
-    );
+  void _showCelebrationAnimation() {
+    setState(() {
+      _showCelebration = true;
+    });
+    Future.delayed(Duration(seconds: 3), () {
+      setState(() {
+        _showCelebration = false;
+      });
+      Navigator.of(context).pop();
+    });
+  }
+
+  double _calculateSimilarity() {
+    String recognizedTextLower = _recognizedText.toLowerCase();
+    String videoTitleLower = widget.videoTitle.toLowerCase();
+
+    int editDistance =
+        _calculateEditDistance(recognizedTextLower, videoTitleLower);
+    double maxLen = recognizedTextLower.length > videoTitleLower.length
+        ? recognizedTextLower.length.toDouble()
+        : videoTitleLower.length.toDouble();
+
+    double similarity = 1.0 - (editDistance / maxLen);
+    print(similarity.toStringAsFixed(2));
+    return similarity;
   }
 
   int _calculateEditDistance(String s1, String s2) {
@@ -182,18 +161,70 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     return a < b ? (a < c ? a : c) : (b < c ? b : c);
   }
 
-  double _calculateSimilarity() {
-    String recognizedTextLower = _recognizedText.toLowerCase();
-    String videoTitleLower = widget.videoTitle.toLowerCase();
-
-    int editDistance =
-        _calculateEditDistance(recognizedTextLower, videoTitleLower);
-    double maxLen = recognizedTextLower.length > videoTitleLower.length
-        ? recognizedTextLower.length.toDouble()
-        : videoTitleLower.length.toDouble();
-
-    double similarity = 1.0 - (editDistance / maxLen);
-    print(similarity.toStringAsFixed(2));
-    return similarity;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.videoTitle),
+      ),
+      body: Stack(
+        children: [
+          _isLoading
+              ? Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: _controller.value.aspectRatio,
+                        child: Chewie(controller: _chewieController),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'What Did You Hear?',
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      FloatingActionButton(
+                        onPressed: _listen,
+                        child: Icon(_isListening ? Icons.mic : Icons.mic_none),
+                      ),
+                      if (_recognizedText.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Recognized Text: $_recognizedText',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 20),
+                              ),
+                              SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _calculateSimilarity() >= 0.5
+                                      ? Icon(Icons.check,
+                                          color: Colors.green, size: 30)
+                                      : Icon(Icons.close,
+                                          color: Colors.red, size: 30),
+                                  SizedBox(width: 10),
+                                  Text(widget.videoTitle.toLowerCase(),
+                                      style: TextStyle(fontSize: 20)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+          if (_showCelebration)
+            Center(
+              child: Lottie.asset('assets\celebration.json',
+                  width: 200, height: 200),
+            ),
+        ],
+      ),
+    );
   }
 }

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
+import '../childExercise.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'dart:math';
+import '../childHomePage.dart'; // Import the ChildHomePage
 
-void main() {
-  runApp(MemoryPairMatchingGame());
-}
 
 class MemoryPairMatchingGame extends StatelessWidget {
+  final String userId;
+
+  MemoryPairMatchingGame({required this.userId});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -13,12 +18,16 @@ class MemoryPairMatchingGame extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: GameScreen(),
+      home: GameScreen(userId: userId), // Pass userId to GameScreen
     );
   }
 }
 
 class GameScreen extends StatefulWidget {
+  final String userId;
+
+  GameScreen({Key? key, required this.userId}) : super(key: key);
+
   @override
   _GameScreenState createState() => _GameScreenState();
 }
@@ -68,7 +77,7 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  void flipCard(int index) {
+  Future<void> flipCard(int index) async {
     if (cardFlipped[index] || flip || previousIndex == index) return;
 
     setState(() {
@@ -84,64 +93,93 @@ class _GameScreenState extends State<GameScreen> {
       });
     } else {
       if (icons[previousIndex] != icons[index]) {
-        Future.delayed(Duration(seconds: 1), () {
-          setState(() {
-            cardStateKeys[previousIndex].currentState?.toggleCard();
-            cardStateKeys[index].currentState?.toggleCard();
-            previousIndex = -1;
-            flip = false;
-          });
+        await Future.delayed(Duration(seconds: 1));
+        setState(() {
+          cardStateKeys[previousIndex].currentState?.toggleCard();
+          cardStateKeys[index].currentState?.toggleCard();
+          previousIndex = -1;
+          flip = false;
         });
       } else {
-        Future.delayed(Duration(milliseconds: 300), () {
-          showDialog(
-            context: context,
-            barrierDismissible: false, // Disable dismissing by tapping outside
-            builder: (context) {
-              return AlertDialog(
-                title: Text('Say the icon name: ${icons[index]}'),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      setState(() {
-                        cardFlipped[previousIndex] = true;
-                        cardFlipped[index] = true;
-                        matchCount++;
-                        previousIndex = -1;
-                        flip = false;
-                        if (cardFlipped.every((t) => t)) {
-                          showDialog(
-                            context: context,
-                            barrierDismissible:
-                                false, // Disable dismissing by tapping outside
-                            builder: (context) {
-                              return AlertDialog(
-                                title: Text('Congratulations!'),
-                                content: Text('You matched all the icons!'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: Text('OK'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        }
-                      });
-                    },
-                    child: Text('I said it!'),
-                  ),
-                ],
+        await Future.delayed(Duration(milliseconds: 300));
+        final randomExercise = await fetchRandomExercise();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoPlaybackPage(
+              videoUrl: randomExercise['downloadURL'] ?? '',
+              videoTitle: randomExercise['word'] ?? 'No Title',
+            ),
+          ),
+        ).then((_) {
+          setState(() {
+            cardFlipped[previousIndex] = true;
+            cardFlipped[index] = true;
+            matchCount++;
+            previousIndex = -1;
+            flip = false;
+            if (cardFlipped.every((t) => t)) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) {
+                  return AlertDialog(
+                    title: Text('Congratulations!'),
+                    content: Text('You matched all the icons!'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('OK'),
+                      ),
+                    ],
+                  );
+                },
               );
-            },
-          );
+            }
+          });
         });
       }
     }
+  }
+
+  Future<Map<String, dynamic>> fetchRandomExercise() async {
+    final userId = widget.userId;
+    final therapistId = await fetchTherapistIdFromChildId(userId);
+    if (therapistId == null) {
+      throw Exception("Therapist ID not found");
+    }
+
+    DatabaseReference ref = FirebaseDatabase.instance
+        .ref("users")
+        .child(therapistId)
+        .child("patients")
+        .child(userId)
+        .child("videos");
+
+    final dataSnapshot = await ref.once();
+    final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
+
+    if (values != null) {
+      List<Map<String, dynamic>> videoList = [];
+      values.forEach((key, value) {
+        Map<String, dynamic> videoData =
+            Map<String, dynamic>.from(value as Map);
+        videoData['key'] = key; // Add the video key to the video data
+        videoList.add(videoData);
+      });
+
+      // Select a random video from the list
+      if (videoList.isNotEmpty) {
+        final randomIndex =
+            (videoList.length * (0.5 + 0.5 * Random().nextDouble())).toInt() %
+                videoList.length;
+        return videoList[randomIndex];
+      }
+    }
+
+    throw Exception("No exercises found");
   }
 
   @override
@@ -176,8 +214,7 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisCount: 4,
                   mainAxisSpacing: 10.0,
                   crossAxisSpacing: 10.0,
-                  childAspectRatio:
-                      0.75, // Adjusted aspect ratio to make cards taller
+                  childAspectRatio: 0.75,
                 ),
                 itemCount: icons.length,
                 itemBuilder: (context, index) {

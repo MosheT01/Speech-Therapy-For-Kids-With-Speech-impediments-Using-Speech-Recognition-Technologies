@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:speech_therapy/child/Games/MissionAdventure.dart';
+import 'package:speech_therapy/child/Games/MemoryGame.dart';
 import 'childTrainPage.dart';
 
 //fetch this patient's therapist id
@@ -59,7 +59,8 @@ class ChildHomePage extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       //builder: (context) => TapTheShapeGame(),
-                      builder: (context) => MemoryPairMatchingGame()),
+                      builder: (context) =>
+                          MemoryPairMatchingGame(userId: userId)),
                 );
               },
               child: const Text('Lets Play Games!'),
