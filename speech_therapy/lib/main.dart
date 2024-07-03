@@ -90,14 +90,13 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(
               builder: (context) => TherapistHomePage(userId: userId)),
         );
-      } else if(isTherapist != null && isTherapist == false){
+      } else if (isTherapist != null && isTherapist == false) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-              builder: (context) =>
-                  ChildHomePage(userId: userId)),
+              builder: (context) => ChildHomePage(userId: userId)),
         );
-      }else{
+      } else {
         displayError("Something Went Wrong While Loging In");
       }
     } catch (e) {
