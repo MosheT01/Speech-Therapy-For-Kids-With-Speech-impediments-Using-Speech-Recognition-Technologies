@@ -172,9 +172,7 @@ class _GameScreenState extends State<GameScreen> {
 
       // Select a random video from the list
       if (videoList.isNotEmpty) {
-        final randomIndex =
-            (videoList.length * (0.5 + 0.5 * Random().nextDouble())).toInt() %
-                videoList.length;
+        final randomIndex = Random().nextInt(videoList.length);
         return videoList[randomIndex];
       }
     }
