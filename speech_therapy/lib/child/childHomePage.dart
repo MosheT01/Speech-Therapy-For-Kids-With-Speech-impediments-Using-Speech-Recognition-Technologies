@@ -59,8 +59,7 @@ class ChildHomePage extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       //builder: (context) => TapTheShapeGame(),
-                      builder: (context) =>
-                          MemoryPairMatchingGame(userId: userId)),
+                      builder: (context) => GameScreen(userId: userId)),
                 );
               },
               child: const Text('Lets Play Games!'),
