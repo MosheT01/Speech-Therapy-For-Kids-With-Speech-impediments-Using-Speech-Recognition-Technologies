@@ -5,7 +5,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'dart:math';
 import '../childHomePage.dart'; // Import the ChildHomePage
 
-
 class MemoryPairMatchingGame extends StatelessWidget {
   final String userId;
 
@@ -130,6 +129,7 @@ class _GameScreenState extends State<GameScreen> {
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).pop();
+                          startNewGame();
                         },
                         child: Text('OK'),
                       ),
@@ -184,9 +184,22 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate card size to fit in a 4x3 grid
+    double cardWidth = (screenWidth - 50) / 4; // 4 cards in a row with padding
+    double cardHeight = (screenHeight - 200) / 3; // 3 rows with padding
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Memory Pair Matching Game'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
@@ -214,7 +227,7 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisCount: 4,
                   mainAxisSpacing: 10.0,
                   crossAxisSpacing: 10.0,
-                  childAspectRatio: 0.75,
+                  childAspectRatio: cardWidth / cardHeight,
                 ),
                 itemCount: icons.length,
                 itemBuilder: (context, index) {
@@ -229,6 +242,8 @@ class _GameScreenState extends State<GameScreen> {
                       flipOnTouch: false,
                       direction: FlipDirection.HORIZONTAL,
                       front: Container(
+                        width: cardWidth,
+                        height: cardHeight,
                         decoration: BoxDecoration(
                           color: Colors.blue,
                           borderRadius: BorderRadius.circular(8.0),
@@ -244,6 +259,8 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       ),
                       back: Container(
+                        width: cardWidth,
+                        height: cardHeight,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8.0),
