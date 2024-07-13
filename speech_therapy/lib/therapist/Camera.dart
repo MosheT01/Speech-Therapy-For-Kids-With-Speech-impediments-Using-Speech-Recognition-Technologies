@@ -458,32 +458,42 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             return PopScope(
               canPop: false,
               onPopInvoked: (didPop) async => false,
-              child: AlertDialog(
-                title: const Text('Preview Video'),
-                content: Container(
-                  width: double.maxFinite,
-                  child: Chewie(
-                    controller: chewieController,
+              child: Dialog(
+                insetPadding:
+                    EdgeInsets.zero, // Make the dialog take the whole screen
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: const Text('Preview Video'),
+                  ),
+                  body: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: Chewie(
+                      controller: chewieController,
+                    ),
+                  ),
+                  bottomNavigationBar: ButtonBar(
+                    alignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(false);
+                          videoController?.dispose();
+                          chewieController.dispose();
+                        },
+                        child: const Text('Retake'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(true);
+                          videoController?.dispose();
+                          chewieController.dispose();
+                        },
+                        child: const Text('Upload'),
+                      ),
+                    ],
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(false);
-                      videoController?.dispose();
-                      chewieController.dispose();
-                    },
-                    child: const Text('Retake'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(true);
-                      videoController?.dispose();
-                      chewieController.dispose();
-                    },
-                    child: const Text('Upload'),
-                  ),
-                ],
               ),
             );
           },
