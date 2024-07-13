@@ -24,9 +24,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//part of this page was lifted from the example of the official flutter camera plugin that is open source!
+// part of this page was lifted from the example of the official flutter camera plugin that is open source!
 
-//TODO We Should Let The User Preview The File Before Uploading it
+// TODO We Should Let The User Preview The File Before Uploading it
+import 'package:chewie/chewie.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:universal_html/html.dart' as html;
 import 'dart:async';
@@ -163,7 +164,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             child: Row(
               children: <Widget>[
                 _cameraTogglesRowWidget(),
-                _thumbnailWidget(),
+                //_thumbnailWidget(),
               ],
             ),
           ),
@@ -337,6 +338,11 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             ),
           ),
         );
+        //first front facing camera found is selected by default otherwise the first camera is selected
+        if (controller == null) {
+          onNewCameraSelected(cameras.firstWhere((CameraDescription camera) =>
+              camera.lensDirection == CameraLensDirection.front));
+        }
       }
     }
 
@@ -434,6 +440,57 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     });
   }
 
+  Future<bool> _showVideoPreviewDialog(XFile file) async {
+    videoController = VideoPlayerController.file(File(file.path));
+    await videoController!.initialize();
+
+    var chewieController = ChewieController(
+      videoPlayerController: videoController!,
+      autoPlay: true,
+      looping: true,
+      draggableProgressBar: true,
+    );
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return PopScope(
+              canPop: false,
+              onPopInvoked: (didPop) async => false,
+              child: AlertDialog(
+                title: const Text('Preview Video'),
+                content: Container(
+                  width: double.maxFinite,
+                  child: Chewie(
+                    controller: chewieController,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(false);
+                      videoController?.dispose();
+                      chewieController.dispose();
+                    },
+                    child: const Text('Retake'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(true);
+                      videoController?.dispose();
+                      chewieController.dispose();
+                    },
+                    child: const Text('Upload'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ) ??
+        false;
+  }
+
   void onStopButtonPressed() async {
     stopVideoRecording().then((XFile? file) async {
       if (mounted) {
@@ -445,48 +502,56 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         String fileName =
             'video_${DateTime.now().millisecondsSinceEpoch}'; // Generate a unique filename
 
-        // Show the metadata dialog
-        final metadata = await _showMetadataDialog(fileName);
+        // Show a dialog where the user can see the recorded video with Chewie and either choose to retake or save the video
+        var upload = await _showVideoPreviewDialog(videoFile!);
+        if (upload) {
+          // Show the metadata dialog
+          final metadata = await _showMetadataDialog(fileName);
 
-        // Dispose resources properly
-        controller?.dispose();
-        videoController?.dispose();
+          // Dispose resources properly
+          controller?.dispose();
+          videoController?.dispose();
 
-        // Navigate back immediately
-        Navigator.pop(context);
+          // Navigate back immediately
+          Navigator.pop(context);
 
-        // Show the uploading toast
-        Fluttertoast.showToast(
-          msg: "Uploading video...",
-          toastLength: Toast.LENGTH_LONG,
-          timeInSecForIosWeb: 10,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.blue,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
-
-        // Upload the video to Firebase Storage in the background
-        uploadVidToFirebaseStorage(file, fileName).then((downloadURL) {
-          saveMetadataToDatabase(fileName, downloadURL, metadata!);
+          // Show the uploading toast
           Fluttertoast.showToast(
-              msg: "Video uploaded to Firebase Storage",
-              toastLength: Toast.LENGTH_SHORT,
-              gravity: ToastGravity.BOTTOM,
-              timeInSecForIosWeb: 3,
-              backgroundColor: Colors.green,
-              textColor: Colors.white,
-              fontSize: 16.0);
-        }).catchError((e) {
-          Fluttertoast.showToast(
-              msg: "Failed to upload video: $e",
-              toastLength: Toast.LENGTH_LONG,
-              gravity: ToastGravity.BOTTOM,
-              timeInSecForIosWeb: 1,
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
-              fontSize: 16.0);
-        });
+            msg: "Uploading video...",
+            toastLength: Toast.LENGTH_LONG,
+            timeInSecForIosWeb: 10,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.blue,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+
+          // Upload the video to Firebase Storage in the background
+          uploadVidToFirebaseStorage(file, fileName).then((downloadURL) {
+            saveMetadataToDatabase(fileName, downloadURL, metadata!);
+            Fluttertoast.showToast(
+                msg: "Video uploaded to Firebase Storage",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.BOTTOM,
+                timeInSecForIosWeb: 3,
+                backgroundColor: Colors.green,
+                textColor: Colors.white,
+                fontSize: 16.0);
+          }).catchError((e) {
+            Fluttertoast.showToast(
+                msg: "Failed to upload video: $e",
+                toastLength: Toast.LENGTH_LONG,
+                gravity: ToastGravity.BOTTOM,
+                timeInSecForIosWeb: 1,
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+                fontSize: 16.0);
+          });
+        } else {
+          if (mounted) {
+            setState(() {});
+          }
+        }
       } else {
         Fluttertoast.showToast(
             msg: "Failed to stop video recording",
@@ -505,10 +570,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       context: context,
       barrierDismissible: false, // User must enter metadata
       builder: (BuildContext context) {
-        return MetadataDialog(
-          userId: widget.userId,
-          patientKey: widget.patientKey,
-          fileName: fileName,
+        return PopScope(
+          canPop: false,
+          onPopInvoked: (didPop) async => false,
+          child: MetadataDialog(
+            userId: widget.userId,
+            patientKey: widget.patientKey,
+            fileName: fileName,
+          ),
         );
       },
     );
