@@ -25,8 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // part of this page was lifted from the example of the official flutter camera plugin that is open source!
-
-// TODO We Should Let The User Preview The File Before Uploading it
+//TODO when uploading a file we set status child did it or not and accuracy if child attemtps when child exercises we update this(metadata)
 import 'package:chewie/chewie.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:universal_html/html.dart' as html;
@@ -40,6 +39,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path_provider/path_provider.dart';
 
 List<CameraDescription> cameras = <CameraDescription>[];
 
@@ -490,6 +490,10 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
           // Notify start of upload
           widget.onUploadStart();
+          // Cache the video locally
+          final directory = await getApplicationDocumentsDirectory();
+          final localFile = File('${directory.path}/$fileName.mp4');
+          await localFile.writeAsBytes(await file.readAsBytes());
 
           // Navigate back immediately
           Navigator.pop(context);

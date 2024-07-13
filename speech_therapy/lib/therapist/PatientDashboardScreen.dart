@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:url_launcher/url_launcher_string.dart';
-import 'Camera.dart';
+import 'package:chewie/chewie.dart';
+import 'package:video_player/video_player.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'Camera.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
@@ -23,6 +26,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   late Map<String, dynamic> patientData = {};
 
   List<Map<String, dynamic>> videoExercises = [];
+  Map<String, File> videoCache = {}; // Cache for downloaded video files
 
   bool isLoading = false;
   bool _isUploading = false; // Track video upload status
@@ -101,6 +105,20 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       debugPrint('Error fetching video exercises: $e');
     }
     return [];
+  }
+
+  Future<File> _downloadAndCacheVideo(String url, String filename) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/$filename');
+
+    if (await file.exists()) {
+      return file;
+    }
+
+    final ref = firebase_storage.FirebaseStorage.instance.refFromURL(url);
+    final downloadData = await ref.getData();
+    await file.writeAsBytes(downloadData!);
+    return file;
   }
 
   void _showEditDialog(BuildContext context) {
@@ -373,6 +391,46 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
+  Future<void> _showVideoDialog(String url, String filename) async {
+    File videoFile;
+    if (videoCache.containsKey(url)) {
+      videoFile = videoCache[url]!;
+    } else {
+      videoFile = await _downloadAndCacheVideo(url, filename);
+      videoCache[url] = videoFile;
+    }
+
+    VideoPlayerController videoPlayerController =
+        VideoPlayerController.file(videoFile);
+    await videoPlayerController.initialize();
+    ChewieController chewieController = ChewieController(
+      videoPlayerController: videoPlayerController,
+      autoPlay: true,
+      looping: true,
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding:
+              EdgeInsets.zero, // Make the dialog take the whole screen
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Video'),
+            ),
+            body: Chewie(
+              controller: chewieController,
+            ),
+          ),
+        );
+      },
+    ).then((_) {
+      videoPlayerController.dispose();
+      chewieController.dispose();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -476,7 +534,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                 onTap: () {
                                   String? downloadURL = video['downloadURL'];
                                   if (downloadURL != null) {
-                                    _launchURL(downloadURL);
+                                    _showVideoDialog(downloadURL, video['key']);
                                   } else {
                                     debugPrint(
                                         'Download URL is null for video at index $index');
@@ -521,7 +579,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               },
               child: const Text('Add Video Exercise'),
             ),
-            //add devidor
+            //add divider
             const Divider(
               color: Colors.black,
               thickness: 1,
@@ -543,14 +601,5 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         ),
       ),
     );
-  }
-}
-
-// Define the _launchURL function
-void _launchURL(String url) async {
-  if (await canLaunchUrlString(url)) {
-    await launchUrlString(url);
-  } else {
-    throw 'Could not launch $url';
   }
 }
