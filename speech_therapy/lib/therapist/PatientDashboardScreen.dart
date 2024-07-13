@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'Camera.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
@@ -24,6 +25,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   List<Map<String, dynamic>> videoExercises = [];
 
   bool isLoading = false;
+  bool _isUploading = false; // Track video upload status
 
   //fetch patient data from the database
   Future<void> fetchPatientData() async {
@@ -250,13 +252,26 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   alignment: Alignment.bottomLeft,
                   child: TextButton(
                     onPressed: () async {
+                      if (_isUploading) {
+                        Fluttertoast.showToast(
+                          msg:
+                              'Cannot delete patient while video is uploading.',
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                          backgroundColor: Colors.red,
+                          textColor: Colors.white,
+                        );
+                        return;
+                      }
+
                       // Confirm deletion
                       Navigator.of(context).pop();
-                      //show deleting toast
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Deleting patient...'),
-                        ),
+                      // Show deleting toast
+                      Fluttertoast.showToast(
+                        msg: 'Deleting patient...',
+                        toastLength: Toast.LENGTH_LONG,
+                        timeInSecForIosWeb: 6,
+                        gravity: ToastGravity.BOTTOM,
                       );
                       //show loading
                       setState(() {
@@ -485,6 +500,16 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           camera: value,
                           userId: widget.userId,
                           patientKey: widget.patientKey,
+                          onUploadStart: () {
+                            setState(() {
+                              _isUploading = true;
+                            });
+                          },
+                          onUploadComplete: () {
+                            setState(() {
+                              _isUploading = false;
+                            });
+                          },
                         ),
                       ),
                     ).then((_) {

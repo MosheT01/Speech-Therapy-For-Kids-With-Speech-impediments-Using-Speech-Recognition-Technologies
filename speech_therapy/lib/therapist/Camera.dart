@@ -48,10 +48,18 @@ class CameraExampleHome extends StatefulWidget {
   final List<CameraDescription>? camera;
   final String userId;
   final String patientKey;
+  final VoidCallback onUploadStart;
+  final VoidCallback onUploadComplete;
 
   /// Default Constructor
-  CameraExampleHome(
-      {this.camera, required this.userId, required this.patientKey, Key? key}) {
+  CameraExampleHome({
+    this.camera,
+    required this.userId,
+    required this.patientKey,
+    required this.onUploadStart,
+    required this.onUploadComplete,
+    Key? key,
+  }) {
     cameras = camera!;
   }
 
@@ -221,48 +229,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         .clamp(_minAvailableZoom, _maxAvailableZoom);
 
     await controller!.setZoomLevel(_currentScale);
-  }
-
-  /// Display the thumbnail of the captured image or video.
-  Widget _thumbnailWidget() {
-    final VideoPlayerController? localVideoController = videoController;
-
-    return Expanded(
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (localVideoController == null && imageFile == null)
-              Container()
-            else
-              SizedBox(
-                width: 64.0,
-                height: 64.0,
-                child: (localVideoController == null)
-                    ? (
-                        // The captured image on the web contains a network-accessible URL
-                        // pointing to a location within the browser. It may be displayed
-                        // either with Image.network or Image.memory after loading the image
-                        // bytes to memory.
-                        kIsWeb
-                            ? Image.network(imageFile!.path)
-                            : Image.file(File(imageFile!.path)))
-                    : Container(
-                        decoration: BoxDecoration(
-                            border: Border.all(color: Colors.pink)),
-                        child: Center(
-                          child: AspectRatio(
-                              aspectRatio:
-                                  localVideoController.value.aspectRatio,
-                              child: VideoPlayer(localVideoController)),
-                        ),
-                      ),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 
   /// Display the control bar with buttons to take pictures and record videos.
@@ -522,6 +488,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
           controller?.dispose();
           videoController?.dispose();
 
+          // Notify start of upload
+          widget.onUploadStart();
+
           // Navigate back immediately
           Navigator.pop(context);
 
@@ -547,6 +516,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                 backgroundColor: Colors.green,
                 textColor: Colors.white,
                 fontSize: 16.0);
+
+            // Notify completion of upload
+            widget.onUploadComplete();
           }).catchError((e) {
             Fluttertoast.showToast(
                 msg: "Failed to upload video: $e",
@@ -556,6 +528,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                 backgroundColor: Colors.red,
                 textColor: Colors.white,
                 fontSize: 16.0);
+
+            // Notify completion of upload
+            widget.onUploadComplete();
           });
         } else {
           if (mounted) {

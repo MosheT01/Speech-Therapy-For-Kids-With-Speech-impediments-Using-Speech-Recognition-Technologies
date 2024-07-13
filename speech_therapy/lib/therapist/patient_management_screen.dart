@@ -26,23 +26,35 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   List<Map<String, dynamic>> filteredPatients = [];
   bool isLoading = true;
   TextEditingController searchController = TextEditingController();
+  late DatabaseReference patientsRef;
 
   @override
   void initState() {
     super.initState();
+    patientsRef = FirebaseDatabase.instance
+        .ref("users")
+        .child(widget.userId)
+        .child("patients");
     fetchPatients();
+
+    // Set up the listener for real-time updates
+    patientsRef.onValue.listen((event) {
+      setState(() {
+        isLoading = true;
+      });
+      fetchPatients();
+      setState(() {
+        isLoading = false;
+      });
+    });
   }
 
   Future<void> fetchPatients() async {
     filteredPatients.clear();
     patients.clear();
-    DatabaseReference ref = FirebaseDatabase.instance
-        .ref("users")
-        .child(widget.userId)
-        .child("patients");
 
     try {
-      final dataSnapshot = await ref.once();
+      final dataSnapshot = await patientsRef.once();
       final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
 
       if (values != null) {
@@ -54,11 +66,10 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         });
         // Set filtered patients initially to all patients
         filteredPatients = patients;
-        //filter the  patients
       }
     } catch (e) {
       displayError(
-          'An error occurred while fetching the patient list from database. Please try again later.');
+          'An error occurred while fetching the patient list from the database. Please try again later.');
     } finally {
       setState(() {
         isLoading = false;
