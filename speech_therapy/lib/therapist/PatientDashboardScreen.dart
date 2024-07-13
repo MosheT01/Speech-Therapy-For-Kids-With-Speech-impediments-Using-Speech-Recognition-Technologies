@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'Camera.dart';
+import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
@@ -234,6 +235,129 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
+  void _showDeleteWarningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Patient'),
+          content: const Text(
+              'Are you sure you want to delete this patient? This action cannot be undone.'),
+          actions: [
+            Row(
+              children: [
+                Align(
+                  alignment: Alignment.bottomLeft,
+                  child: TextButton(
+                    onPressed: () async {
+                      // Confirm deletion
+                      Navigator.of(context).pop();
+                      //show deleting toast
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Deleting patient...'),
+                        ),
+                      );
+                      //show loading
+                      setState(() {
+                        isLoading = true;
+                      });
+                      await _deletePatient();
+                      //hide loading
+                      setState(() {
+                        isLoading = false;
+                      });
+                    },
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // Cancel deletion
+                      Navigator.of(context).pop();
+                    },
+                    autofocus: true,
+                    //make button green fill
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+// Function to delete all patient videos
+  Future<void> deleteAllPatientVideos(String userId, String patientKey) async {
+    try {
+      // Create a reference to the patient's folder in Firebase Storage
+      var ref = firebase_storage.FirebaseStorage.instance
+          .ref()
+          .child('/$userId/$patientKey/');
+
+      // List all files in the patient's folder
+      var listResult = await ref.listAll();
+
+      // Delete each file in the folder
+      for (var item in listResult.items) {
+        await item.delete();
+      }
+      //delete the folder
+      await ref.delete();
+
+      print('All patient videos deleted successfully');
+    } catch (e) {
+      print('Error deleting patient videos: $e');
+    }
+  }
+
+  Future<void> _deletePatient() async {
+    try {
+      // Delete all patient videos
+      await deleteAllPatientVideos(widget.userId, widget.patientKey);
+
+      // Delete patient from therapist's patients list
+      DatabaseReference therapistRef = FirebaseDatabase.instance
+          .ref("users")
+          .child(widget.userId)
+          .child("patients")
+          .child(widget.patientKey);
+      await therapistRef.remove();
+
+      // Set hasTherapist as false
+      DatabaseReference patientHasTherapistRef = FirebaseDatabase.instance
+          .ref("users")
+          .child(widget.patientKey)
+          .child("hasTherapist");
+      await patientHasTherapistRef.set(false);
+
+      // Delete therapistId from patient
+      DatabaseReference patientTherapistIdRef = FirebaseDatabase.instance
+          .ref("users")
+          .child(widget.patientKey)
+          .child("therapistId");
+      await patientTherapistIdRef.remove();
+
+      debugPrint(
+          'Patient removed from care and their videos deleted successfully');
+      Navigator.of(context).pop();
+    } catch (e) {
+      debugPrint('Error deleting patient: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,6 +381,30 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                // Call _showEditDialog within setState
+                                _showEditDialog(context);
+                              });
+                            },
+                            child: const Text('Edit Patient Details'),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              _showDeleteWarningDialog(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            child: const Text('Delete Patient'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       Text(
                         'Name: ${patientData['firstName']} ${patientData['lastName']}',
                         style: const TextStyle(fontSize: 16),
@@ -272,15 +420,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       const SizedBox(height: 20),
                     ],
                   ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  // Call _showEditDialog within setState
-                  _showEditDialog(context);
-                });
-              },
-              child: const Text('Edit Patient Details'),
-            ),
             const Divider(
               color: Colors.black,
               thickness: 1,
