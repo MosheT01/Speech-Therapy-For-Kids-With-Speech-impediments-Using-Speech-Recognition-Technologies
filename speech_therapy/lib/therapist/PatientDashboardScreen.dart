@@ -65,6 +65,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     super.initState();
     fetchVideoExercises();
     fetchPatientData();
+    cacheAllVideosInBackground();
     // Set up the listener for real-time updates
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
@@ -107,9 +108,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     return [];
   }
 
+  Future<void> cacheAllVideosInBackground() async {
+    for (var video in videoExercises) {
+      String downloadURL = video['downloadURL'];
+      String fileName = video['key'];
+      await _downloadAndCacheVideo(downloadURL, fileName);
+    }
+  }
+
   Future<File> _downloadAndCacheVideo(String url, String filename) async {
     final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$filename');
+    final file = File('${directory.path}/$filename.mp4');
 
     if (await file.exists()) {
       return file;
@@ -118,6 +127,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final ref = firebase_storage.FirebaseStorage.instance.refFromURL(url);
     final downloadData = await ref.getData();
     await file.writeAsBytes(downloadData!);
+    setState(() {
+      videoCache[url] = file;
+    });
     return file;
   }
 
@@ -392,6 +404,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   Future<void> _showVideoDialog(String url, String filename) async {
+    setState(() {
+      isLoading = true;
+    });
     File videoFile;
     if (videoCache.containsKey(url)) {
       videoFile = videoCache[url]!;
@@ -408,6 +423,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       autoPlay: true,
       looping: true,
     );
+
+    setState(() {
+      isLoading = false;
+    });
 
     showDialog(
       context: context,
@@ -437,169 +456,180 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       appBar: AppBar(
         title: const Text('Patient Dashboard'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Patient Details:',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                // Call _showEditDialog within setState
-                                _showEditDialog(context);
-                              });
-                            },
-                            child: const Text('Edit Patient Details'),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onPressed: () {
-                              _showDeleteWarningDialog(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                            ),
-                            child: const Text('Delete Patient'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Name: ${patientData['firstName']} ${patientData['lastName']}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      Text(
-                        'Age: ${patientData['age']}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      Text(
-                        'Gender: ${patientData['gender']}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+      body: isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Patient Details:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-            const Divider(
-              color: Colors.black,
-              thickness: 1,
-            ),
-            const Text(
-              'Patient Video Exercises:',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            FutureBuilder(
-              future: fetchVideoExercises(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  if (videoExercises.isEmpty) {
-                    return const Text('No videos found for this patient');
-                  } else {
-                    return const CircularProgressIndicator();
-                  }
-                } else {
-                  videoExercises = snapshot.data ?? [];
-                  //sort the video exercises by key
-                  videoExercises.sort((a, b) => a['key'].compareTo(b['key']));
-
-                  return Expanded(
-                    child: isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: videoExercises.length,
-                            itemBuilder: (context, index) {
-                              Map<String, dynamic>? video =
-                                  videoExercises[index];
-                              return ListTile(
-                                title: Text("${video['word'] ?? 'Unknown'}"),
-                                subtitle: Text(
-                                    'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}'),
-                                leading: const Icon(Icons.video_library),
-                                onTap: () {
-                                  String? downloadURL = video['downloadURL'];
-                                  if (downloadURL != null) {
-                                    _showVideoDialog(downloadURL, video['key']);
-                                  } else {
-                                    debugPrint(
-                                        'Download URL is null for video at index $index');
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                  );
-                }
-              },
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await availableCameras().then(
-                  (value) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CameraExampleHome(
-                          camera: value,
-                          userId: widget.userId,
-                          patientKey: widget.patientKey,
-                          onUploadStart: () {
-                            setState(() {
-                              _isUploading = true;
-                            });
-                          },
-                          onUploadComplete: () {
-                            setState(() {
-                              _isUploading = false;
-                            });
-                          },
+                  isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      // Call _showEditDialog within setState
+                                      _showEditDialog(context);
+                                    });
+                                  },
+                                  child: const Text('Edit Patient Details'),
+                                ),
+                                const SizedBox(width: 10),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showDeleteWarningDialog(context);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                  ),
+                                  child: const Text('Delete Patient'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Name: ${patientData['firstName']} ${patientData['lastName']}',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            Text(
+                              'Age: ${patientData['age']}',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            Text(
+                              'Gender: ${patientData['gender']}',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
                         ),
-                      ),
-                    ).then((_) {
-                      setState(
-                          () {}); // Refresh the UI after returning from the CameraExampleHome page
-                    });
-                  },
-                );
-              },
-              child: const Text('Add Video Exercise'),
-            ),
-            //add divider
-            const Divider(
-              color: Colors.black,
-              thickness: 1,
-            ),
-            //schedule appointment section
-            const Text(
-              'Schedule Appointment:',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
+                  const Divider(
+                    color: Colors.black,
+                    thickness: 1,
+                  ),
+                  const Text(
+                    'Patient Video Exercises:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  FutureBuilder(
+                    future: fetchVideoExercises(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (videoExercises.isEmpty) {
+                          return const Text('No videos found for this patient');
+                        } else {
+                          return const CircularProgressIndicator();
+                        }
+                      } else {
+                        videoExercises = snapshot.data ?? [];
+                        //sort the video exercises by key
+                        videoExercises
+                            .sort((a, b) => a['key'].compareTo(b['key']));
 
-            ElevatedButton(
-              onPressed: () {
-                // Implement your logic for scheduling an appointment here
-              },
-              child: const Text('Schedule Appointment'),
+                        return Expanded(
+                          child: isLoading
+                              ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: videoExercises.length,
+                                  itemBuilder: (context, index) {
+                                    Map<String, dynamic>? video =
+                                        videoExercises[index];
+                                    return ListTile(
+                                      title:
+                                          Text("${video['word'] ?? 'Unknown'}"),
+                                      subtitle: Text(
+                                          'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}'),
+                                      leading: const Icon(Icons.video_library),
+                                      onTap: () {
+                                        String? downloadURL =
+                                            video['downloadURL'];
+                                        if (downloadURL != null) {
+                                          _showVideoDialog(
+                                              downloadURL, video['key']);
+                                        } else {
+                                          debugPrint(
+                                              'Download URL is null for video at index $index');
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                        );
+                      }
+                    },
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await availableCameras().then(
+                        (value) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CameraExampleHome(
+                                camera: value,
+                                userId: widget.userId,
+                                patientKey: widget.patientKey,
+                                onUploadStart: () {
+                                  setState(() {
+                                    _isUploading = true;
+                                  });
+                                },
+                                onUploadComplete: () {
+                                  setState(() {
+                                    _isUploading = false;
+                                    // Fetch the videos again to update the list
+                                    fetchVideoExercises();
+                                  });
+                                },
+                              ),
+                            ),
+                          ).then((_) {
+                            setState(() {
+                              // Refresh the UI after returning from the CameraExampleHome page
+                            });
+                          });
+                        },
+                      );
+                    },
+                    child: const Text('Add Video Exercise'),
+                  ),
+                  //add divider
+                  const Divider(
+                    color: Colors.black,
+                    thickness: 1,
+                  ),
+                  //schedule appointment section
+                  const Text(
+                    'Schedule Appointment:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      // Implement your logic for scheduling an appointment here
+                    },
+                    child: const Text('Schedule Appointment'),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }
