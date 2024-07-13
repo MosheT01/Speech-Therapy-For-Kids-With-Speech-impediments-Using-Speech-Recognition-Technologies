@@ -24,7 +24,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//part of this page was lifted from the example of the offical flutter camera plugin that is open source!
+//part of this page was lifted from the example of the official flutter camera plugin that is open source!
 
 //TODO We Should Let The User Preview The File Before Uploading it
 import 'package:firebase_database/firebase_database.dart';
@@ -38,6 +38,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:fluttertoast/fluttertoast.dart';
 
 List<CameraDescription> cameras = <CameraDescription>[];
 
@@ -105,6 +106,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    controller?.dispose();
+    videoController?.dispose();
     super.dispose();
   }
 
@@ -374,7 +377,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       CameraDescription cameraDescription) async {
     final CameraController cameraController = CameraController(
       cameraDescription,
-      kIsWeb ? ResolutionPreset.max : ResolutionPreset.medium,
+      kIsWeb ? ResolutionPreset.high : ResolutionPreset.medium,
       enableAudio: enableAudio,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
@@ -439,50 +442,79 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       if (file != null) {
         videoFile = file;
 
-        // If the recorded video is intended to be displayed after recording,
-        //_startVideoPlayer();
-
         String fileName =
             'video_${DateTime.now().millisecondsSinceEpoch}'; // Generate a unique filename
 
         // Show the metadata dialog
-        await _showMetadataDialog(file, fileName);
-        //show rotating loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  Text(
-                    'The Video Is Being Uploaded...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          },
+        final metadata = await _showMetadataDialog(fileName);
+
+        // Dispose resources properly
+        controller?.dispose();
+        videoController?.dispose();
+
+        // Navigate back immediately
+        Navigator.pop(context);
+
+        // Show the uploading toast
+        Fluttertoast.showToast(
+          msg: "Uploading video...",
+          toastLength: Toast.LENGTH_LONG,
+          timeInSecForIosWeb: 10,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.blue,
+          textColor: Colors.white,
+          fontSize: 16.0,
         );
-        // Upload the video to Firebase Storage
-        await uploadVidToFirebaseStorage(file, fileName);
-        Navigator.pop(context);
-        Navigator.pop(context);
-        //navigate back
+
+        // Upload the video to Firebase Storage in the background
+        uploadVidToFirebaseStorage(file, fileName).then((downloadURL) {
+          saveMetadataToDatabase(fileName, downloadURL, metadata!);
+          Fluttertoast.showToast(
+              msg: "Video uploaded to Firebase Storage",
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+              timeInSecForIosWeb: 3,
+              backgroundColor: Colors.green,
+              textColor: Colors.white,
+              fontSize: 16.0);
+        }).catchError((e) {
+          Fluttertoast.showToast(
+              msg: "Failed to upload video: $e",
+              toastLength: Toast.LENGTH_LONG,
+              gravity: ToastGravity.BOTTOM,
+              timeInSecForIosWeb: 1,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0);
+        });
       } else {
-        showInSnackBar('Failed to stop video recording');
+        Fluttertoast.showToast(
+            msg: "Failed to stop video recording",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            timeInSecForIosWeb: 1,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0);
       }
     });
   }
 
-  Future<void> uploadVidToFirebaseStorage(XFile file, String fileName) async {
+  Future<Map<String, dynamic>?> _showMetadataDialog(String fileName) async {
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false, // User must enter metadata
+      builder: (BuildContext context) {
+        return MetadataDialog(
+          userId: widget.userId,
+          patientKey: widget.patientKey,
+          fileName: fileName,
+        );
+      },
+    );
+  }
+
+  Future<String> uploadVidToFirebaseStorage(XFile file, String fileName) async {
     try {
       // Create a reference to the storage location
       var ref = firebase_storage.FirebaseStorage.instance
@@ -500,22 +532,24 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         // Upload the blob to Firebase Storage
         await ref.putFile(File(file.path));
       }
-      //get the download url
-      String downloadURL = await ref.getDownloadURL();
-      //save the download url to the database
-      DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
-          'users/${widget.userId}/patients/${widget.patientKey}/videos/$fileName');
-      databaseReference.update({'downloadURL': downloadURL});
 
-      //save the downlad url to under the therapist as well could be usefull when if we give the therapist the option to choose a video he recoreded for other patients
-      // DatabaseReference databaseReferenceTherapist =
-      //     FirebaseDatabase.instance.ref('users/${widget.userId}/videos').push();
-      // databaseReferenceTherapist.update(downloadURL);
-
-      showInSnackBar('Video uploaded to Firebase Storage');
+      // Get the download URL
+      return await ref.getDownloadURL();
     } catch (e) {
-      showInSnackBar('Failed to upload video: $e');
+      throw e;
     }
+  }
+
+  Future<void> saveMetadataToDatabase(String fileName, String downloadURL,
+      Map<String, dynamic> metadata) async {
+    // Save the metadata to Firebase Realtime Database
+    DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
+        'users/${widget.userId}/patients/${widget.patientKey}/videos/$fileName');
+    await databaseReference.update({
+      'downloadURL': downloadURL,
+      'word': metadata['word'],
+      'difficulty': metadata['difficulty'],
+    });
   }
 
   void onPauseButtonPressed() {
@@ -523,7 +557,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       if (mounted) {
         setState(() {});
       }
-      showInSnackBar('Video recording paused');
+      Fluttertoast.showToast(
+          msg: "Video recording paused",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.yellow,
+          textColor: Colors.black,
+          fontSize: 16.0);
     });
   }
 
@@ -532,7 +573,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       if (mounted) {
         setState(() {});
       }
-      showInSnackBar('Video recording resumed');
+      Fluttertoast.showToast(
+          msg: "Video recording resumed",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.blue,
+          textColor: Colors.white,
+          fontSize: 16.0);
     });
   }
 
@@ -540,7 +588,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     final CameraController? cameraController = controller;
 
     if (cameraController == null || !cameraController.value.isInitialized) {
-      showInSnackBar('Error: select a camera first.');
+      Fluttertoast.showToast(
+          msg: "Error: select a camera first.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
       return;
     }
 
@@ -602,19 +657,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     }
   }
 
-  Future<void> _showMetadataDialog(XFile videoFile, String fileName) async {
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return MetadataDialog(
-          userId: widget.userId,
-          patientKey: widget.patientKey,
-          fileName: fileName,
-        );
-      },
-    );
-  }
-
   Future<void> _startVideoPlayer() async {
     if (videoFile == null) {
       return;
@@ -648,7 +690,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   void _showCameraException(CameraException e) {
     _logError(e.code, e.description);
-    showInSnackBar('Error: ${e.code}\n${e.description}');
+    Fluttertoast.showToast(
+        msg: 'Error: ${e.code}\n${e.description}',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0);
   }
 }
 
@@ -711,15 +760,10 @@ class _MetadataDialogState extends State<MetadataDialog> {
           child: const Text('Save'),
           onPressed: () {
             if (_formKey.currentState!.validate()) {
-              // Save the metadata to Firebase Realtime Database
-              DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
-                  'users/${widget.userId}/patients/${widget.patientKey}/videos/${widget.fileName}');
-              databaseReference.update({
+              Navigator.of(context).pop({
                 'word': word,
                 'difficulty': difficulty.toInt(),
               });
-
-              Navigator.of(context).pop();
             }
           },
         ),

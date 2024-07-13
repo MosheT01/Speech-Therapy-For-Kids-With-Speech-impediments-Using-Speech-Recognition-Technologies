@@ -58,6 +58,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     super.initState();
     fetchVideoExercises();
     fetchPatientData();
+    // Set up the listener for real-time updates
+    DatabaseReference ref = FirebaseDatabase.instance
+        .ref("users")
+        .child(widget.userId)
+        .child("patients")
+        .child(widget.patientKey)
+        .child("videos");
+
+    ref.onValue.listen((event) {
+      fetchVideoExercises();
+      fetchPatientData();
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchVideoExercises() async {
