@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -5,6 +6,10 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:lottie/lottie.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:universal_html/html.dart' as html;
+import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
 class VideoPlaybackPage extends StatefulWidget {
   final String videoUrl;
@@ -34,27 +39,78 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
   bool _isLoading = true;
   String _recognizedText = '';
   bool _showCelebration = false;
+  File? _cachedVideoFile;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideoPlayer();
     _initializeSpeechToText();
+    _checkAndCacheVideo(widget.videoUrl, widget.videoKey).then((file) {
+      setState(() {
+        _cachedVideoFile = file;
+        _initializeVideoPlayer(file);
+      });
+    });
   }
 
-  void _initializeVideoPlayer() {
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-      ..initialize().then((_) {
-        setState(() {
-          _isLoading = false;
+  Future<File?> _checkAndCacheVideo(String url, String filename) async {
+    if (kIsWeb) {
+      final response =
+          await html.HttpRequest.request(url, responseType: 'blob');
+      final blob = response.response as html.Blob;
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(blob);
+      await reader.onLoadEnd.first;
+
+      final bytes = reader.result as List<int>;
+      final data = Uint8List.fromList(bytes);
+
+      // Store in IndexedDB or LocalStorage (implementation required)
+      // For simplicity, we return null here as actual caching requires IndexedDB usage.
+      return null;
+    } else {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$filename');
+
+      if (await file.exists()) {
+        return file;
+      }
+
+      final ref = firebase_storage.FirebaseStorage.instance.refFromURL(url);
+      final downloadData = await ref.getData();
+      await file.writeAsBytes(downloadData!);
+      return file;
+    }
+  }
+
+  void _initializeVideoPlayer(File? file) {
+    if (kIsWeb) {
+      _controller = VideoPlayerController.network(widget.videoUrl)
+        ..initialize().then((_) {
+          setState(() {
+            _isLoading = false;
+          });
+          _controller.play();
+        }).catchError((error) {
+          setState(() {
+            _isLoading = false;
+          });
+          _showErrorDialog('Error loading video: $error');
         });
-        _controller.play();
-      }).catchError((error) {
-        setState(() {
-          _isLoading = false;
+    } else {
+      _controller = VideoPlayerController.file(file!)
+        ..initialize().then((_) {
+          setState(() {
+            _isLoading = false;
+          });
+          _controller.play();
+        }).catchError((error) {
+          setState(() {
+            _isLoading = false;
+          });
+          _showErrorDialog('Error loading video: $error');
         });
-        _showErrorDialog('Error loading video: $error');
-      });
+    }
 
     _chewieController = ChewieController(
       videoPlayerController: _controller,
@@ -88,6 +144,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
             _recognizedText = val.recognizedWords;
             double similarity = _calculateSimilarity();
             if (similarity >= 0.5) {
+              // Update the database to mark the exercise as completed
               _updateDatabase(true, similarity);
               _showCelebrationAnimation();
             } else {
