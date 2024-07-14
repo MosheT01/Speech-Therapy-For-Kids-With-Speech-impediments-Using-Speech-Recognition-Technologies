@@ -96,13 +96,18 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
                           Text('Difficulty: ${video['difficulty']}'),
                         ],
                       ),
-                      onTap: () {
+                      onTap: () async {
+                        var therapistId =
+                            await fetchTherapistIdFromChildId(widget.userId);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => VideoPlaybackPage(
                               videoUrl: video['downloadURL'] ?? '',
                               videoTitle: video['word'] ?? 'No Title',
+                              therapistID: therapistId!,
+                              userId: widget.userId,
+                              videoKey: video['key'] ?? 'No Key',
                             ),
                           ),
                         );
