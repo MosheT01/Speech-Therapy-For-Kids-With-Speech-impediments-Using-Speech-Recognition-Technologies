@@ -108,6 +108,9 @@ class _GameScreenState extends State<GameScreen> {
             builder: (context) => VideoPlaybackPage(
               videoUrl: randomExercise['downloadURL'] ?? '',
               videoTitle: randomExercise['word'] ?? 'No Title',
+              therapistID: randomExercise['therapistID'] ?? '',
+              userId: widget.userId,
+              videoKey: randomExercise['key'] ?? 'No Key',
             ),
           ),
         ).then((_) {
