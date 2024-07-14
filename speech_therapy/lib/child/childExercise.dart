@@ -3,14 +3,24 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:lottie/lottie.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class VideoPlaybackPage extends StatefulWidget {
   final String videoUrl;
   final String videoTitle;
+  final String therapistID;
+  final String userId;
+  final String videoKey;
 
-  VideoPlaybackPage(
-      {Key? key, required this.videoUrl, required this.videoTitle})
-      : super(key: key);
+  VideoPlaybackPage({
+    Key? key,
+    required this.videoUrl,
+    required this.videoTitle,
+    required this.therapistID,
+    required this.userId,
+    required this.videoKey,
+  }) : super(key: key);
 
   @override
   _VideoPlaybackPageState createState() => _VideoPlaybackPageState();
@@ -76,8 +86,12 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
         _speech.listen(
           onResult: (val) => setState(() {
             _recognizedText = val.recognizedWords;
-            if (_calculateSimilarity() >= 0.5) {
+            double similarity = _calculateSimilarity();
+            if (similarity >= 0.5) {
+              _updateDatabase(true, similarity);
               _showCelebrationAnimation();
+            } else {
+              _updateDatabase(false, similarity);
             }
           }),
           localeId: 'en_US',
@@ -87,6 +101,33 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       setState(() => _isListening = false);
       _speech.stop();
     }
+  }
+
+  void _updateDatabase(bool completed, double accuracy) {
+    DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
+        'users/${widget.therapistID}/patients/${widget.userId}/videos/${widget.videoKey}');
+    databaseReference.update({
+      'status': completed ? 'childAttempted' : 'childDidNotAttempt',
+      'accuracy': accuracy,
+    }).then((_) {
+      Fluttertoast.showToast(
+          msg: "Database updated successfully",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    }).catchError((error) {
+      Fluttertoast.showToast(
+          msg: "Failed to update database: $error",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    });
   }
 
   void _showErrorDialog(String message) {
@@ -220,7 +261,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                 ),
           if (_showCelebration)
             Center(
-              child: Lottie.asset('assets\celebration.json',
+              child: Lottie.asset('assets/celebration.json',
                   width: 200, height: 200),
             ),
         ],
