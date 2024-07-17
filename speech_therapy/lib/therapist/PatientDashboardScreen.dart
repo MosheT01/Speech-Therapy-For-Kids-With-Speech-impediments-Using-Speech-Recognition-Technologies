@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:chewie/chewie.dart';
-import 'package:video_player/video_player.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'Camera.dart';
+import 'package:chewie/chewie.dart';
+import 'package:video_player/video_player.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
@@ -26,7 +26,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   late Map<String, dynamic> patientData = {};
 
   List<Map<String, dynamic>> videoExercises = [];
-  Map<String, File> videoCache = {}; // Cache for downloaded video files
 
   bool isLoading = false;
   bool _isUploading = false; // Track video upload status
@@ -65,7 +64,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     super.initState();
     fetchVideoExercises();
     fetchPatientData();
-    cacheAllVideosInBackground();
     // Set up the listener for real-time updates
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
@@ -107,32 +105,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
     return [];
   }
-
-  Future<void> cacheAllVideosInBackground() async {
-    for (var video in videoExercises) {
-      String downloadURL = video['downloadURL'];
-      String fileName = video['key'];
-      await _downloadAndCacheVideo(downloadURL, fileName);
-    }
-  }
-
-  Future<File> _downloadAndCacheVideo(String url, String filename) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$filename.mp4');
-
-    if (await file.exists()) {
-      return file;
-    }
-
-    final ref = firebase_storage.FirebaseStorage.instance.refFromURL(url);
-    final downloadData = await ref.getData();
-    await file.writeAsBytes(downloadData!);
-    setState(() {
-      videoCache[url] = file;
-    });
-    return file;
-  }
-
+  
   void _showEditDialog(BuildContext context) {
     String firstName = patientData['firstName'];
     String lastName = patientData['lastName'];
@@ -404,19 +377,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   Future<void> _showVideoDialog(String url, String filename) async {
-    setState(() {
-      isLoading = true;
-    });
-    File videoFile;
-    if (videoCache.containsKey(url)) {
-      videoFile = videoCache[url]!;
-    } else {
-      videoFile = await _downloadAndCacheVideo(url, filename);
-      videoCache[url] = videoFile;
-    }
+    
 
     VideoPlayerController videoPlayerController =
-        VideoPlayerController.file(videoFile);
+        VideoPlayerController.networkUrl(Uri.parse(url));
     await videoPlayerController.initialize();
     ChewieController chewieController = ChewieController(
       videoPlayerController: videoPlayerController,
