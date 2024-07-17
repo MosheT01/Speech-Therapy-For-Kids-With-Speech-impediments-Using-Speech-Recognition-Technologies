@@ -47,6 +47,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           patientData = Map<String, dynamic>.from(value);
           isLoading = false;
         });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
       }
     } catch (e) {
       debugPrint('Error fetching patient data: $e');
@@ -113,6 +117,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final lastNameController = TextEditingController(text: lastName);
     final ageController = TextEditingController(text: age.toString());
 
+    final _formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -121,104 +127,126 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             return AlertDialog(
               title: const Text('Edit Patient Details'),
               content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: firstNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name',
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: firstNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'First Name',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a valid first name';
+                          }
+                          if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
+                            return 'Please enter a valid first name';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            firstName = value;
+                          });
+                        },
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          firstName = value;
-                        });
-                      },
-                    ),
-                    TextField(
-                      controller: lastNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Last Name',
+                      TextFormField(
+                        controller: lastNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Last Name',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a valid last name';
+                          }
+                          if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
+                            return 'Please enter a valid last name';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            lastName = value;
+                          });
+                        },
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          lastName = value;
-                        });
-                      },
-                    ),
-                    TextField(
-                      controller: ageController,
-                      decoration: const InputDecoration(
-                        labelText: 'Age',
+                      TextFormField(
+                        controller: ageController,
+                        decoration: const InputDecoration(
+                          labelText: 'Age',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a valid age';
+                          }
+                          int? age = int.tryParse(value);
+                          if (age == null || age < 1 || age > 150) {
+                            return 'Please enter a valid age';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            age = int.tryParse(value) ?? 0;
+                          });
+                        },
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          age = int.tryParse(value) ?? 0;
-                        });
-                      },
-                    ),
-                    DropdownButtonFormField<String>(
-                      value: gender,
-                      decoration: const InputDecoration(
-                        labelText: 'Gender',
-                      ),
-                      items: ['Male', 'Female']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          gender = newValue!;
-                        });
-                      },
-                    )
-                  ],
+                      DropdownButtonFormField<String>(
+                        value: gender,
+                        decoration: const InputDecoration(
+                          labelText: 'Gender',
+                        ),
+                        items: ['Male', 'Female']
+                            .map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            gender = newValue!;
+                          });
+                        },
+                      )
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () {
-                    if (firstName.isEmpty ||
-                        lastName.isEmpty ||
-                        !RegExp(r'^[a-zA-Z]+$').hasMatch(firstName) ||
-                        !RegExp(r'^[a-zA-Z]+$').hasMatch(lastName)) {
-                      // Validation errors
-                      return;
-                    } else if (age < 1 || age > 150) {
-                      // Validation errors
-                      return;
-                    }
+                    if (_formKey.currentState!.validate()) {
+                      // Update the patient details in the database
+                      final DatabaseReference ref = FirebaseDatabase.instance
+                          .ref()
+                          .child('users')
+                          .child(widget.userId)
+                          .child('patients')
+                          .child(widget.patientKey);
 
-                    // Update the patient details in the database
-                    final DatabaseReference ref = FirebaseDatabase.instance
-                        .ref()
-                        .child('users')
-                        .child(widget.userId)
-                        .child('patients')
-                        .child(widget.patientKey);
-
-                    ref.update({
-                      'firstName': firstName,
-                      'lastName': lastName,
-                      'age': age,
-                      'gender': gender,
-                    }).then((_) {
-                      debugPrint('Patient details updated successfully');
-                      setState(() {
-                        // Update local state
-                        patientData['firstName'] = firstName;
-                        patientData['lastName'] = lastName;
-                        patientData['age'] = age;
-                        patientData['gender'] = gender;
+                      ref.update({
+                        'firstName': firstName,
+                        'lastName': lastName,
+                        'age': age,
+                        'gender': gender,
+                      }).then((_) {
+                        debugPrint('Patient details updated successfully');
+                        setState(() {
+                          // Update local state
+                          patientData['firstName'] = firstName;
+                          patientData['lastName'] = lastName;
+                          patientData['age'] = age;
+                          patientData['gender'] = gender;
+                        });
+                        // Dismiss the dialog
+                        Navigator.of(context).pop();
+                        fetchPatientData();
+                      }).catchError((error) {
+                        debugPrint('Error updating patient details: $error');
                       });
-                      // Dismiss the dialog
-                      Navigator.of(context).pop();
-                      fetchPatientData();
-                    }).catchError((error) {
-                      debugPrint('Error updating patient details: $error');
-                    });
+                    }
                   },
                   child: const Text('Save'),
                 ),
@@ -314,7 +342,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-// Function to delete all patient videos
+  // Function to delete all patient videos
   Future<void> deleteAllPatientVideos(String userId, String patientKey) async {
     try {
       // Create a reference to the patient's folder in Firebase Storage
@@ -537,6 +565,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           ).then((_) {
                             setState(() {
                               // Refresh the UI after returning from the CameraExampleHome page
+                              fetchVideoExercises();
                             });
                           });
                         },
