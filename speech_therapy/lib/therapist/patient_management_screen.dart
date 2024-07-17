@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'AddPatientScreen.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'PatientDashboardScreen.dart';
+//TODO fix the ininite loading after returning from dashboard on web
 
 class PatientManagementScreen extends StatefulWidget {
   final String userId;
@@ -14,23 +15,27 @@ class PatientManagementScreen extends StatefulWidget {
 
 class _PatientManagementScreenState extends State<PatientManagementScreen> {
   void displayError(String errorToDisplay) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorToDisplay),
-        backgroundColor: Colors.red,
-      ),
-    );
+    print(errorToDisplay);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorToDisplay),
+          backgroundColor: Colors.red,
+        ),
+      );
+    });
   }
 
   List<Map<String, dynamic>> patients = [];
   List<Map<String, dynamic>> filteredPatients = [];
-  bool isLoading = true;
+  bool isLoading = false;
   TextEditingController searchController = TextEditingController();
   late DatabaseReference patientsRef;
 
   @override
   void initState() {
     super.initState();
+    print("Initializing PatientManagementScreen...");
     patientsRef = FirebaseDatabase.instance
         .ref("users")
         .child(widget.userId)
@@ -38,43 +43,52 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     fetchPatients();
 
     // Set up the listener for real-time updates
-    patientsRef.onValue.listen((event) {
-      setState(() {
-        isLoading = true;
-      });
-      fetchPatients();
-      setState(() {
-        isLoading = false;
-      });
+    patientsRef.onValue.listen((event) async {
+      print("Real-time update detected.");
+      await fetchPatients();
     });
   }
 
   Future<void> fetchPatients() async {
-    filteredPatients.clear();
-    patients.clear();
+    print("Fetching patients...");
+
+    setState(() {
+      isLoading = true;
+    });
 
     try {
-      final dataSnapshot = await patientsRef.once();
-      final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
+      var dataSnapshot = await patientsRef.once();
+      var values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
 
       if (values != null) {
+        print("Patients data fetched successfully.");
         // Map patients including their keys
-        values.forEach((key, value) {
-          Map<String, dynamic> patientWithKey = Map.from(value);
-          patientWithKey['key'] = key;
-          patients.add(patientWithKey);
-        });
+        patients = values.entries.map((entry) {
+          Map<String, dynamic> patientWithKey = Map.from(entry.value);
+          patientWithKey['key'] = entry.key;
+          return patientWithKey;
+        }).toList();
         // Set filtered patients initially to all patients
-        filteredPatients = patients;
+        filteredPatients = List.from(patients);
+      } else {
+        print("No patients found.");
+        patients = [];
+        filteredPatients = [];
       }
     } catch (e) {
+      print("Error fetching patients: $e");
       displayError(
           'An error occurred while fetching the patient list from the database. Please try again later.');
     } finally {
       setState(() {
         isLoading = false;
       });
+      print("Fetching patients completed.");
     }
+    setState(() {
+      isLoading = false;
+    });
+    isLoading = false;
   }
 
   void filterPatients(String query) {
@@ -96,11 +110,27 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         builder: (context) => AddPatientScreen(userId: widget.userId),
       ),
     );
+    print("Returned from AddPatientScreen.");
+    await fetchPatients();
+  }
+
+  Future<void> _navigateToPatientDashboard(String patientKey) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PatientDashboardScreen(
+          userId: widget.userId,
+          patientKey: patientKey,
+        ),
+      ),
+    );
+    print("Returned from PatientDashboardScreen.");
     await fetchPatients();
   }
 
   @override
   Widget build(BuildContext context) {
+    print("Building PatientManagementScreen...");
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Patients'),
@@ -138,49 +168,36 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                           return GestureDetector(
                             onTap: () async {
                               // Navigate to patient dashboard screen
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PatientDashboardScreen(
-                                    userId: widget.userId,
-                                    patientKey: filteredPatients[index]['key'],
-                                  ),
-                                ),
-                              );
-
-                              // Refresh the list
-                              setState(() {
-                                isLoading = true;
-                              });
-                              await fetchPatients();
-                              setState(() {
-                                isLoading = false;
-                              });
+                              await _navigateToPatientDashboard(
+                                  filteredPatients[index]['key']);
                             },
                             child: Column(
                               children: [
                                 ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: Colors.grey,
-                                    //if patient is Male, display person icon with color blue, else display person icon with color pink
                                     child: Icon(
-                                        filteredPatients[index]['gender'] ==
-                                                'Male'
-                                            ? Icons.man
-                                            : Icons.woman,
-                                        color: filteredPatients[index]
-                                                    ['gender'] ==
-                                                'Male'
-                                            ? Colors.blue
-                                            : Colors.pinkAccent),
+                                      filteredPatients[index]['gender'] ==
+                                              'Male'
+                                          ? Icons.man
+                                          : Icons.woman,
+                                      color: filteredPatients[index]
+                                                  ['gender'] ==
+                                              'Male'
+                                          ? Colors.blue
+                                          : Colors.pinkAccent,
+                                    ),
                                   ),
                                   title: Text(
                                     '${filteredPatients[index]['firstName']} ${filteredPatients[index]['lastName']}',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   subtitle: Text(
-                                      'Age: ${filteredPatients[index]['age']}'),
+                                    'Age: ${filteredPatients[index]['age']}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                   trailing: const Icon(Icons.arrow_forward_ios),
                                 ),
                                 const Divider(), // Add divider
@@ -196,13 +213,6 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         onPressed: () async {
           // Navigate to add patient screen
           await _navigateToAddPatientScreen();
-          setState(() {
-            isLoading = true;
-          });
-          await fetchPatients();
-          setState(() {
-            isLoading = false;
-          });
         },
         child: const Icon(Icons.add),
       ),
