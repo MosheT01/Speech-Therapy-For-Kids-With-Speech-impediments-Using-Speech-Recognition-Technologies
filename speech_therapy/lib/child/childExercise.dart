@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:lottie/lottie.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -56,8 +55,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
         });
         _showErrorDialog('Error loading video: $error');
       });
-      
-      _chewieController = ChewieController(
+
+    _chewieController = ChewieController(
       videoPlayerController: _controller,
       aspectRatio: _controller.value.aspectRatio,
       autoPlay: true,
@@ -85,15 +84,20 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       if (available) {
         setState(() => _isListening = true);
         _speech.listen(
+          listenOptions: stt.SpeechListenOptions(
+            partialResults: true,
+          ),
           onResult: (val) => setState(() {
             _recognizedText = val.recognizedWords;
             double similarity = _calculateSimilarity();
+            int grade = (similarity * 100).toInt();
             if (similarity >= 0.5) {
               // Update the database to mark the exercise as completed
-              _updateDatabase(true, similarity);
+              _updateDatabase(true, grade);
               _showCelebrationAnimation();
+              Navigator.of(context).pop();
             } else {
-              _updateDatabase(false, similarity);
+              _updateDatabase(false, grade);
             }
           }),
           localeId: 'en_US',
@@ -105,12 +109,12 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     }
   }
 
-  void _updateDatabase(bool completed, double accuracy) {
+  void _updateDatabase(bool completed, int grade) {
     DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
         'users/${widget.therapistID}/patients/${widget.userId}/videos/${widget.videoKey}');
     databaseReference.update({
       'status': completed ? 'childAttempted' : 'childDidNotAttempt',
-      'accuracy': accuracy,
+      'grade': grade,
     }).then((_) {
       Fluttertoast.showToast(
           msg: "Database updated successfully",
@@ -160,7 +164,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       setState(() {
         _showCelebration = false;
       });
-      Navigator.of(context).pop();
     });
   }
 
@@ -263,8 +266,13 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                 ),
           if (_showCelebration)
             Center(
-              child: Lottie.asset('assets/celebration.json',
-                  width: 200, height: 200),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check, color: Colors.green, size: 200),
+                  Text('Congratulations!', style: TextStyle(fontSize: 24)),
+                ],
+              ),
             ),
         ],
       ),

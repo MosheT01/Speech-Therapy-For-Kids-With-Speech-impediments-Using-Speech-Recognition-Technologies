@@ -517,7 +517,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                       title:
                                           Text("${video['word'] ?? 'Unknown'}"),
                                       subtitle: Text(
-                                          'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}'),
+                                          'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}\nGrade: ${video['grade'] ?? 'N/A'}'),
                                       leading: const Icon(Icons.video_library),
                                       onTap: () {
                                         String? downloadURL =
