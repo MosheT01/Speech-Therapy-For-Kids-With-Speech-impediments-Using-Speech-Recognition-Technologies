@@ -45,8 +45,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
         });
         _showErrorDialog('Error loading video: $error');
       });
-
-    _chewieController = ChewieController(
+      
+      _chewieController = ChewieController(
       videoPlayerController: _controller,
       aspectRatio: _controller.value.aspectRatio,
       autoPlay: true,

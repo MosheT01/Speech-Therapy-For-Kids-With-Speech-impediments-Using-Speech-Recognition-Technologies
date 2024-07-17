@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:url_launcher/url_launcher_string.dart';
-import 'Camera.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'Camera.dart';
+import 'package:chewie/chewie.dart';
+import 'package:video_player/video_player.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
@@ -373,6 +376,42 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
+  Future<void> _showVideoDialog(String url, String filename) async {
+    VideoPlayerController videoPlayerController =
+        VideoPlayerController.networkUrl(Uri.parse(url));
+    await videoPlayerController.initialize();
+    ChewieController chewieController = ChewieController(
+      videoPlayerController: videoPlayerController,
+      autoPlay: true,
+      looping: true,
+    );
+
+    setState(() {
+      isLoading = false;
+    });
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding:
+              EdgeInsets.zero, // Make the dialog take the whole screen
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Video'),
+            ),
+            body: Chewie(
+              controller: chewieController,
+            ),
+          ),
+        );
+      },
+    ).then((_) {
+      videoPlayerController.dispose();
+      chewieController.dispose();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -476,7 +515,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                 onTap: () {
                                   String? downloadURL = video['downloadURL'];
                                   if (downloadURL != null) {
-                                    _launchURL(downloadURL);
+                                    _showVideoDialog(
+                                        downloadURL, video['""filename""']);
                                   } else {
                                     debugPrint(
                                         'Download URL is null for video at index $index');
@@ -543,14 +583,5 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         ),
       ),
     );
-  }
-}
-
-// Define the _launchURL function
-void _launchURL(String url) async {
-  if (await canLaunchUrlString(url)) {
-    await launchUrlString(url);
-  } else {
-    throw 'Could not launch $url';
   }
 }

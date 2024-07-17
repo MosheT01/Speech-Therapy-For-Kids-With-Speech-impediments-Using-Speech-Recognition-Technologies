@@ -25,7 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // part of this page was lifted from the example of the official flutter camera plugin that is open source!
-
+//TODO when uploading a file we set status child did it or not and accuracy if child attemtps when child exercises we update this(metadata)
 // TODO We Should Let The User Preview The File Before Uploading it
 import 'package:chewie/chewie.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -490,6 +490,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
           // Notify start of upload
           widget.onUploadStart();
+          // Cache the video locally
+          //Call A Function That Caches To Each Platfrom Individually
 
           // Navigate back immediately
           Navigator.pop(context);
