@@ -3,11 +3,8 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+import 'package:speech_therapy/VideoPreviewScreen.dart';
 import 'Camera.dart';
-import 'package:chewie/chewie.dart';
-import 'package:video_player/video_player.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
@@ -105,7 +102,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
     return [];
   }
-  
+
   void _showEditDialog(BuildContext context) {
     String firstName = patientData['firstName'];
     String lastName = patientData['lastName'];
@@ -376,42 +373,16 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  Future<void> _showVideoDialog(String url, String filename) async {
-    
-
-    VideoPlayerController videoPlayerController =
-        VideoPlayerController.networkUrl(Uri.parse(url));
-    await videoPlayerController.initialize();
-    ChewieController chewieController = ChewieController(
-      videoPlayerController: videoPlayerController,
-      autoPlay: true,
-      looping: true,
+  void _navigateToVideoPreviewScreen({String? videoUrl, String? filePath}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VideoPreviewScreen(
+          videoUrl: videoUrl,
+          filePath: filePath,
+        ),
+      ),
     );
-
-    setState(() {
-      isLoading = false;
-    });
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          insetPadding:
-              EdgeInsets.zero, // Make the dialog take the whole screen
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Video'),
-            ),
-            body: Chewie(
-              controller: chewieController,
-            ),
-          ),
-        );
-      },
-    ).then((_) {
-      videoPlayerController.dispose();
-      chewieController.dispose();
-    });
   }
 
   @override
@@ -524,8 +495,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                         String? downloadURL =
                                             video['downloadURL'];
                                         if (downloadURL != null) {
-                                          _showVideoDialog(
-                                              downloadURL, video['key']);
+                                          _navigateToVideoPreviewScreen(
+                                              videoUrl: downloadURL);
                                         } else {
                                           debugPrint(
                                               'Download URL is null for video at index $index');

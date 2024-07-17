@@ -6,10 +6,6 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:lottie/lottie.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'package:universal_html/html.dart' as html;
-import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
 class VideoPlaybackPage extends StatefulWidget {
   final String videoUrl;

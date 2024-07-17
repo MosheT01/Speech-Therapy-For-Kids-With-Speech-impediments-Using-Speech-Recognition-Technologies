@@ -40,7 +40,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:path_provider/path_provider.dart';
 
 List<CameraDescription> cameras = <CameraDescription>[];
 
@@ -97,7 +96,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   XFile? imageFile;
   XFile? videoFile;
   VideoPlayerController? videoController;
-  VoidCallback? videoPlayerListener;
+  ChewieController? chewieController;
   bool enableAudio = true;
   double _minAvailableZoom = 1.0;
   double _maxAvailableZoom = 1.0;
@@ -118,6 +117,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     WidgetsBinding.instance.removeObserver(this);
     controller?.dispose();
     videoController?.dispose();
+    chewieController?.dispose();
     super.dispose();
   }
 
@@ -126,7 +126,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? cameraController = controller;
 
-    // App state changed before we got the chance to initialize.
+// App state changed before we got the chance to initialize.
     if (cameraController == null || !cameraController.value.isInitialized) {
       return;
     }
@@ -221,7 +221,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   }
 
   Future<void> _handleScaleUpdate(ScaleUpdateDetails details) async {
-    // When there are not exactly two fingers on screen don't scale
+// When there are not exactly two fingers on screen don't scale
     if (controller == null || _pointers != 2) {
       return;
     }
@@ -385,6 +385,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         case 'AudioAccessDeniedWithoutPrompt':
           // iOS only
           showInSnackBar('Please go to Settings app to enable audio access.');
+
         case 'AudioAccessRestricted':
           // iOS only
           showInSnackBar('Audio access is restricted.');
@@ -408,10 +409,15 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   }
 
   Future<bool> _showVideoPreviewDialog(XFile file) async {
-    videoController = VideoPlayerController.file(File(file.path));
+    if (videoController != null) {
+      await videoController!.dispose();
+    }
+    videoController = kIsWeb
+        ? VideoPlayerController.networkUrl(Uri.parse(file.path))
+        : VideoPlayerController.file(File(file.path));
     await videoController!.initialize();
 
-    var chewieController = ChewieController(
+    chewieController = ChewieController(
       videoPlayerController: videoController!,
       autoPlay: true,
       looping: true,
@@ -436,7 +442,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                     width: double.infinity,
                     height: double.infinity,
                     child: Chewie(
-                      controller: chewieController,
+                      controller: chewieController!,
                     ),
                   ),
                   bottomNavigationBar: ButtonBar(
@@ -446,7 +452,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                         onPressed: () {
                           Navigator.of(context).pop(false);
                           videoController?.dispose();
-                          chewieController.dispose();
+                          chewieController?.dispose();
                         },
                         child: const Text('Retake'),
                       ),
@@ -454,7 +460,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                         onPressed: () {
                           Navigator.of(context).pop(true);
                           videoController?.dispose();
-                          chewieController.dispose();
+                          chewieController?.dispose();
                         },
                         child: const Text('Upload'),
                       ),
@@ -723,16 +729,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         ? VideoPlayerController.networkUrl(Uri.parse(videoFile!.path))
         : VideoPlayerController.file(File(videoFile!.path));
 
-    videoPlayerListener = () {
-      if (videoController != null) {
-        // Refreshing the state to update video player with the correct ratio.
-        if (mounted) {
-          setState(() {});
-        }
-        videoController!.removeListener(videoPlayerListener!);
-      }
-    };
-    vController.addListener(videoPlayerListener!);
     await vController.setLooping(true);
     await vController.initialize();
     await videoController?.dispose();
