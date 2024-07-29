@@ -96,6 +96,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
       ),
     );
     print("Returned from AddPatientScreen.");
+    fetchPatients();
   }
 
   Future<void> _navigateToPatientDashboard(String patientKey) async {
@@ -109,6 +110,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
       ),
     );
     print("Returned from PatientDashboardScreen.");
+    fetchPatients();
   }
 
   void displayError(String errorToDisplay) {
@@ -124,13 +126,6 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    setState(() {
-      isLoading = true;
-    });
-    fetchPatients();
-    setState(() {
-      isLoading = false;
-    });
     print("Building PatientManagementScreen...");
     return Scaffold(
       appBar: AppBar(
@@ -150,7 +145,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
             ),
           ),
           Expanded(
-            child: isLoading
+            child: false//isloading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredPatients.isEmpty
                     ? const Center(
