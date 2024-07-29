@@ -102,13 +102,15 @@ class _GameScreenState extends State<GameScreen> {
       } else {
         await Future.delayed(Duration(milliseconds: 300));
         final randomExercise = await fetchRandomExercise();
+        final therapistId =
+            await fetchTherapistIdFromChildId(widget.userId)! as String;
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => VideoPlaybackPage(
               videoUrl: randomExercise['downloadURL'] ?? '',
               videoTitle: randomExercise['word'] ?? 'No Title',
-              therapistID: randomExercise['therapistID'] ?? '',
+              therapistID: therapistId,
               userId: widget.userId,
               videoKey: randomExercise['key'] ?? 'No Key',
             ),
