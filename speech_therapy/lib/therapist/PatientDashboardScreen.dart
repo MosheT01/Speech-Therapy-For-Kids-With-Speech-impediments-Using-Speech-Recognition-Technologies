@@ -5,6 +5,19 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:speech_therapy/VideoPreviewScreen.dart';
 import 'Camera.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+
+class CustomCacheManager {
+  static final CacheManager _cacheManager = CacheManager(
+    Config(
+      'customCacheKey',
+      stalePeriod: Duration(days: 7), // Cache duration
+      maxNrOfCacheObjects: 100, // Max number of objects to cache
+    ),
+  );
+
+  static CacheManager get instance => _cacheManager;
+}
 
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
@@ -96,6 +109,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         values.forEach((key, value) {
           Map<String, dynamic> videoData = Map.from(value);
           videoData['key'] = key; // Add the video key to the video data
+
+          // Cache the video URL
+          String? downloadURL = videoData['downloadURL'];
+          if (downloadURL != null) {
+            CustomCacheManager.instance
+                .downloadFile(downloadURL)
+                .catchError((e) {
+              debugPrint('Error caching video URL: $e');
+            });
+          }
+
           videos.add(videoData);
         });
 
@@ -401,16 +425,27 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  void _navigateToVideoPreviewScreen({String? videoUrl, String? filePath}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VideoPreviewScreen(
-          videoUrl: videoUrl,
-          filePath: filePath,
-        ),
-      ),
-    );
+  void _navigateToVideoPreviewScreen(
+      {String? videoUrl, String? filePath}) async {
+    if (videoUrl != null) {
+      try {
+        // Try to get the cached file
+        final file = await CustomCacheManager.instance.getSingleFile(videoUrl);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoPreviewScreen(
+              videoUrl: videoUrl,
+              filePath: file.path,
+            ),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error navigating to video preview screen: $e');
+      }
+    } else {
+      debugPrint('Download URL is null for video');
+    }
   }
 
   @override
