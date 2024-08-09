@@ -8,6 +8,7 @@ class PatientManagementScreen extends StatefulWidget {
   const PatientManagementScreen({super.key, required this.userId});
 
   @override
+  // ignore: library_private_types_in_public_api
   _PatientManagementScreenState createState() =>
       _PatientManagementScreenState();
 }
@@ -146,6 +147,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
           ),
           Expanded(
             child: false//isloading
+                // ignore: dead_code
                 ? const Center(child: CircularProgressIndicator())
                 : filteredPatients.isEmpty
                     ? const Center(
