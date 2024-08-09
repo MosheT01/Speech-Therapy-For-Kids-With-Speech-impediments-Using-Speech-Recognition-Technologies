@@ -8,7 +8,7 @@ class VideoPreviewScreen extends StatefulWidget {
   final String? videoUrl;
   final String? filePath;
 
-  VideoPreviewScreen({this.videoUrl, this.filePath});
+  const VideoPreviewScreen({super.key, this.videoUrl, this.filePath});
 
   @override
   _VideoPreviewScreenState createState() => _VideoPreviewScreenState();

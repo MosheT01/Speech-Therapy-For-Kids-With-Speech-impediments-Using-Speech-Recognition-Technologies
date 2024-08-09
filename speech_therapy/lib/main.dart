@@ -11,7 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 bool _isLoading = false;
 
 void main() async {
-  // Ensure Firebase initialization completes before running the app
+  // Ensure Firebase initialization completes before running the appi
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

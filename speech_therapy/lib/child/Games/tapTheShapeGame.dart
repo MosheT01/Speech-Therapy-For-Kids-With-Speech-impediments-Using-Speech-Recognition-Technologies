@@ -3,10 +3,12 @@ import 'dart:math';
 import 'package:random_color/random_color.dart';
 
 void main() {
-  runApp(TapTheShapeGame());
+  runApp(const TapTheShapeGame());
 }
 
 class TapTheShapeGame extends StatelessWidget {
+  const TapTheShapeGame({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -14,21 +16,23 @@ class TapTheShapeGame extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: GameScreen(),
+      home: const GameScreen(),
     );
   }
 }
 
 class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+
   @override
   _GameScreenState createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  Random _random = Random();
-  RandomColor _randomColor = RandomColor();
+  final Random _random = Random();
+  final RandomColor _randomColor = RandomColor();
   int _score = 0;
-  Offset _position = Offset(100, 100);
+  Offset _position = const Offset(100, 100);
   Color _color = Colors.red;
 
   void _changePositionAndColor() {
@@ -44,7 +48,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tap the Shape Game'),
+        title: const Text('Tap the Shape Game'),
       ),
       body: Stack(
         children: <Widget>[
@@ -69,7 +73,7 @@ class _GameScreenState extends State<GameScreen> {
               padding: const EdgeInsets.all(20.0),
               child: Text(
                 'Score: $_score',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
           ),

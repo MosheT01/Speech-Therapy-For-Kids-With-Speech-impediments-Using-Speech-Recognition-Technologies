@@ -7,7 +7,7 @@ import 'childExercise.dart';
 class ChildTrainPage extends StatefulWidget {
   final String userId;
 
-  ChildTrainPage({super.key, required this.userId});
+  const ChildTrainPage({super.key, required this.userId});
 
   @override
   _ChildTrainPageState createState() => _ChildTrainPageState();

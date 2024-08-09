@@ -58,7 +58,7 @@ class TherapistHomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SpeechRecPrototype()),
+                  MaterialPageRoute(builder: (context) => const SpeechRecPrototype()),
                 );
               },
               child: const Text('Speech Rec Prototype'),

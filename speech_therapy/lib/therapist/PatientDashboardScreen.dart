@@ -11,7 +11,7 @@ class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
     Config(
       'customCacheKey',
-      stalePeriod: Duration(days: 7), // Cache duration
+      stalePeriod: const Duration(days: 7), // Cache duration
       maxNrOfCacheObjects: 100, // Max number of objects to cache
     ),
   );
@@ -141,7 +141,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final lastNameController = TextEditingController(text: lastName);
     final ageController = TextEditingController(text: age.toString());
 
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -152,7 +152,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               title: const Text('Edit Patient Details'),
               content: SingleChildScrollView(
                 child: Form(
-                  key: _formKey,
+                  key: formKey,
                   child: Column(
                     children: [
                       TextFormField(
@@ -241,7 +241,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    if (_formKey.currentState!.validate()) {
+                    if (formKey.currentState!.validate()) {
                       // Update the patient details in the database
                       final DatabaseReference ref = FirebaseDatabase.instance
                           .ref()
@@ -426,7 +426,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   void _navigateToVideoPreviewScreen(
-      {String? videoUrl, String? filePath}) async {
+      {String? videoUrl}) async {
     if (videoUrl != null) {
       try {
         // Try to get the cached file

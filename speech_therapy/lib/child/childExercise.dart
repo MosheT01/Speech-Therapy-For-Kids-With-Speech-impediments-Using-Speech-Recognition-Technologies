@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -13,14 +12,14 @@ class VideoPlaybackPage extends StatefulWidget {
   final String userId;
   final String videoKey;
 
-  VideoPlaybackPage({
-    Key? key,
+  const VideoPlaybackPage({
+    super.key,
     required this.videoUrl,
     required this.videoTitle,
     required this.therapistID,
     required this.userId,
     required this.videoKey,
-  }) : super(key: key);
+  });
 
   @override
   _VideoPlaybackPageState createState() => _VideoPlaybackPageState();
@@ -141,11 +140,11 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Error'),
+          title: const Text('Error'),
           content: Text(message),
           actions: [
             TextButton(
-              child: Text('OK'),
+              child: const Text('OK'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -160,7 +159,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     setState(() {
       _showCelebration = true;
     });
-    Future.delayed(Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 3), () {
       setState(() {
         _showCelebration = false;
       });
@@ -216,7 +215,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       body: Stack(
         children: [
           _isLoading
-              ? Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                   child: Column(
                     children: [
@@ -224,8 +223,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                         aspectRatio: _controller.value.aspectRatio,
                         child: Chewie(controller: _chewieController),
                       ),
-                      SizedBox(height: 10),
-                      Text(
+                      const SizedBox(height: 10),
+                      const Text(
                         'What Did You Hear?',
                         style: TextStyle(
                             fontSize: 24, fontWeight: FontWeight.bold),
@@ -241,21 +240,21 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                             children: [
                               Text(
                                 'Recognized Text: $_recognizedText',
-                                style: TextStyle(
+                                style: const TextStyle(
                                     fontWeight: FontWeight.bold, fontSize: 20),
                               ),
-                              SizedBox(height: 10),
+                              const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   _calculateSimilarity() >= 0.5
-                                      ? Icon(Icons.check,
+                                      ? const Icon(Icons.check,
                                           color: Colors.green, size: 30)
-                                      : Icon(Icons.close,
+                                      : const Icon(Icons.close,
                                           color: Colors.red, size: 30),
-                                  SizedBox(width: 10),
+                                  const SizedBox(width: 10),
                                   Text(widget.videoTitle.toLowerCase(),
-                                      style: TextStyle(fontSize: 20)),
+                                      style: const TextStyle(fontSize: 20)),
                                 ],
                               ),
                             ],
@@ -265,7 +264,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                   ),
                 ),
           if (_showCelebration)
-            Center(
+            const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

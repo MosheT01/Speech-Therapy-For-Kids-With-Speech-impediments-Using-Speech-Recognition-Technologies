@@ -52,13 +52,12 @@ class CameraExampleHome extends StatefulWidget {
   final VoidCallback onUploadComplete;
 
   /// Default Constructor
-  CameraExampleHome({
+  CameraExampleHome({super.key, 
     this.camera,
     required this.userId,
     required this.patientKey,
     required this.onUploadStart,
     required this.onUploadComplete,
-    Key? key,
   }) {
     cameras = camera!;
   }
@@ -98,8 +97,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   VideoPlayerController? videoController;
   ChewieController? chewieController;
   bool enableAudio = true;
-  double _minAvailableZoom = 1.0;
-  double _maxAvailableZoom = 1.0;
+  final double _minAvailableZoom = 1.0;
+  final double _maxAvailableZoom = 1.0;
   double _currentScale = 1.0;
   double _baseScale = 1.0;
 
@@ -438,7 +437,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                   appBar: AppBar(
                     title: const Text('Preview Video'),
                   ),
-                  body: Container(
+                  body: SizedBox(
                     width: double.infinity,
                     height: double.infinity,
                     child: Chewie(
@@ -599,7 +598,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       // Get the download URL
       return await ref.getDownloadURL();
     } catch (e) {
-      throw e;
+      rethrow;
     }
   }
 
@@ -759,8 +758,8 @@ class MetadataDialog extends StatefulWidget {
   final String patientKey;
   final String fileName;
 
-  MetadataDialog(
-      {required this.userId, required this.patientKey, required this.fileName});
+  const MetadataDialog(
+      {super.key, required this.userId, required this.patientKey, required this.fileName});
 
   @override
   _MetadataDialogState createState() => _MetadataDialogState();

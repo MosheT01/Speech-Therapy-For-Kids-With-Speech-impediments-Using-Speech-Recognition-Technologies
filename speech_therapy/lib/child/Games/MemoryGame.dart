@@ -8,7 +8,7 @@ import '../childHomePage.dart'; // Import the ChildHomePage
 class MemoryPairMatchingGame extends StatelessWidget {
   final String userId;
 
-  MemoryPairMatchingGame({required this.userId});
+  const MemoryPairMatchingGame({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +25,7 @@ class MemoryPairMatchingGame extends StatelessWidget {
 class GameScreen extends StatefulWidget {
   final String userId;
 
-  GameScreen({Key? key, required this.userId}) : super(key: key);
+  const GameScreen({super.key, required this.userId});
 
   @override
   _GameScreenState createState() => _GameScreenState();
@@ -92,7 +92,7 @@ class _GameScreenState extends State<GameScreen> {
       });
     } else {
       if (icons[previousIndex] != icons[index]) {
-        await Future.delayed(Duration(seconds: 1));
+        await Future.delayed(const Duration(seconds: 1));
         setState(() {
           cardStateKeys[previousIndex].currentState?.toggleCard();
           cardStateKeys[index].currentState?.toggleCard();
@@ -100,10 +100,10 @@ class _GameScreenState extends State<GameScreen> {
           flip = false;
         });
       } else {
-        await Future.delayed(Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 300));
         final randomExercise = await fetchRandomExercise();
         final therapistId =
-            await fetchTherapistIdFromChildId(widget.userId)! as String;
+            await fetchTherapistIdFromChildId(widget.userId) as String;
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -128,15 +128,15 @@ class _GameScreenState extends State<GameScreen> {
                 barrierDismissible: false,
                 builder: (context) {
                   return AlertDialog(
-                    title: Text('Congratulations!'),
-                    content: Text('You matched all the icons!'),
+                    title: const Text('Congratulations!'),
+                    content: const Text('You matched all the icons!'),
                     actions: [
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).pop();
                           startNewGame();
                         },
-                        child: Text('OK'),
+                        child: const Text('OK'),
                       ),
                     ],
                   );
@@ -196,16 +196,16 @@ class _GameScreenState extends State<GameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Memory Pair Matching Game'),
+        title: const Text('Memory Pair Matching Game'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh),
             onPressed: startNewGame,
           ),
         ],
@@ -251,7 +251,7 @@ class _GameScreenState extends State<GameScreen> {
                           color: Colors.blue,
                           borderRadius: BorderRadius.circular(8.0),
                         ),
-                        child: Center(
+                        child: const Center(
                           child: Text(
                             '?',
                             style: TextStyle(
@@ -271,7 +271,7 @@ class _GameScreenState extends State<GameScreen> {
                         child: Center(
                           child: Text(
                             icons[index],
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 32.0,
                             ),
                           ),
