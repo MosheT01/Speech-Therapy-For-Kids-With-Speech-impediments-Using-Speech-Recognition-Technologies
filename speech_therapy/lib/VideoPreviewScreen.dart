@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
@@ -16,7 +16,7 @@ class VideoPreviewScreen extends StatefulWidget {
 
 class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
   late VideoPlayerController _videoPlayerController;
-  late ChewieController _chewieController;
+  ChewieController? _chewieController;
   bool _isLoading = true;
 
   @override
@@ -26,21 +26,31 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
   }
 
   Future<void> _initializeVideoPlayer() async {
-    if (widget.videoUrl != null) {
+    if (kIsWeb && widget.videoUrl != null) {
+      // On the web, prefer the video URL if available
       _videoPlayerController =
           VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
-    } else if (widget.filePath != null) {
+    } else if (!kIsWeb && widget.filePath != null) {
+      // On mobile or desktop, prefer the file if available
       _videoPlayerController =
           VideoPlayerController.file(File(widget.filePath!));
+    } else if (widget.videoUrl != null) {
+      // Fallback to video URL if file is not available
+      _videoPlayerController =
+          VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
     }
 
+    // Initialize the video player
     await _videoPlayerController.initialize();
+
+    // Initialize Chewie controller
     _chewieController = ChewieController(
       videoPlayerController: _videoPlayerController,
       autoPlay: true,
-      looping: true,
+      looping: false,
     );
 
+    // Update the state to stop loading and show the video player
     setState(() {
       _isLoading = false;
     });
@@ -49,7 +59,7 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
   @override
   void dispose() {
     _videoPlayerController.dispose();
-    _chewieController.dispose();
+    _chewieController?.dispose();
     super.dispose();
   }
 
@@ -67,7 +77,7 @@ class _VideoPreviewScreenState extends State<VideoPreviewScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Chewie(controller: _chewieController),
+          : Chewie(controller: _chewieController!),
     );
   }
 }

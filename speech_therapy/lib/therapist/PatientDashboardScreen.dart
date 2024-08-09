@@ -425,8 +425,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  void _navigateToVideoPreviewScreen(
-      {String? videoUrl}) async {
+  void _navigateToVideoPreviewScreen({String? videoUrl}) async {
     if (videoUrl != null) {
       try {
         // Try to get the cached file
