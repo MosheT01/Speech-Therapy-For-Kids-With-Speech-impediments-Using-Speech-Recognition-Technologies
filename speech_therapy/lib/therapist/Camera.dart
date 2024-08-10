@@ -52,7 +52,8 @@ class CameraExampleHome extends StatefulWidget {
   final VoidCallback onUploadComplete;
 
   /// Default Constructor
-  CameraExampleHome({super.key, 
+  CameraExampleHome({
+    super.key,
     this.camera,
     required this.userId,
     required this.patientKey,
@@ -457,9 +458,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).pop(true);
                           videoController?.dispose();
                           chewieController?.dispose();
+                          Navigator.of(context).pop(true);
                         },
                         child: const Text('Upload'),
                       ),
@@ -759,7 +760,10 @@ class MetadataDialog extends StatefulWidget {
   final String fileName;
 
   const MetadataDialog(
-      {super.key, required this.userId, required this.patientKey, required this.fileName});
+      {super.key,
+      required this.userId,
+      required this.patientKey,
+      required this.fileName});
 
   @override
   _MetadataDialogState createState() => _MetadataDialogState();

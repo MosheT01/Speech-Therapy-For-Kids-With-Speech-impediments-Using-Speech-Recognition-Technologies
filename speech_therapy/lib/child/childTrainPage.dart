@@ -1,8 +1,21 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'childHomePage.dart';
 import 'childExercise.dart';
+
+class CustomCacheManager {
+  static final CacheManager _cacheManager = CacheManager(
+    Config(
+      'customCacheKey',
+      stalePeriod: const Duration(days: 30), // Cache duration
+      maxNrOfCacheObjects: 100, // Max number of objects to cache
+    ),
+  );
+
+  static CacheManager get instance => _cacheManager;
+}
 
 class ChildTrainPage extends StatefulWidget {
   final String userId;
@@ -53,6 +66,17 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
           Map<String, dynamic> videoData =
               Map<String, dynamic>.from(value as Map);
           videoData['key'] = key; // Add the video key to the video data
+
+          // Cache the video URL
+          String? downloadURL = videoData['downloadURL'];
+          if (downloadURL != null) {
+            CustomCacheManager.instance
+                .downloadFile(downloadURL)
+                .catchError((e) {
+              debugPrint('Error caching video URL: $e');
+            });
+          }
+
           videoList.add(videoData);
         });
         setState(() {
@@ -116,14 +140,5 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
                   },
                 ),
     );
-  }
-}
-
-// Define the _launchURL function
-void _launchURL(String url) async {
-  if (await canLaunchUrlString(url)) {
-    await launchUrlString(url);
-  } else {
-    throw 'Could not launch $url';
   }
 }

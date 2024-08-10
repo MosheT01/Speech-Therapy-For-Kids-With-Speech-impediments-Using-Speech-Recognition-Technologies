@@ -1,9 +1,24 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+
+class CustomCacheManager {
+  static final CacheManager _cacheManager = CacheManager(
+    Config(
+      'customCacheKey',
+      stalePeriod: const Duration(days: 30), // Cache duration
+      maxNrOfCacheObjects: 100, // Max number of objects to cache
+    ),
+  );
+
+  static CacheManager get instance => _cacheManager;
+}
 
 class VideoPlaybackPage extends StatefulWidget {
   final String videoUrl;
@@ -41,26 +56,50 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     _initializeSpeechToText();
   }
 
-  void _initializeVideoPlayer() {
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-      ..initialize().then((_) {
-        setState(() {
-          _isLoading = false;
-        });
-        _controller.play();
-      }).catchError((error) {
-        setState(() {
-          _isLoading = false;
-        });
-        _showErrorDialog('Error loading video: $error');
+  Future<void> _initializeVideoPlayer() async {
+    try {
+      setState(() {
+        _isLoading = true;
       });
 
-    _chewieController = ChewieController(
-      videoPlayerController: _controller,
-      aspectRatio: _controller.value.aspectRatio,
-      autoPlay: true,
-      looping: false,
-    );
+      if (kIsWeb) {
+        // On the web, always use the network URL
+        _controller =
+            VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      } else {
+        // Attempt to cache the video first, then use the cached file
+        final file =
+            await CustomCacheManager.instance.getSingleFile(widget.videoUrl);
+
+        if (file.existsSync()) {
+          _controller = VideoPlayerController.file(file);
+        } else {
+          _controller =
+              VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+        }
+      }
+
+      // Initialize the video player
+      await _controller.initialize();
+
+      // Initialize Chewie controller
+      _chewieController = ChewieController(
+        videoPlayerController: _controller,
+        aspectRatio: _controller.value.aspectRatio,
+        autoPlay: true,
+        looping: false,
+      );
+
+      // Update the state to stop loading and show the video player
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showErrorDialog('Error loading video: $e');
+    }
   }
 
   void _initializeSpeechToText() {
