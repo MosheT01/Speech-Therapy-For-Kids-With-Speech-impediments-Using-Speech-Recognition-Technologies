@@ -21,3 +21,6 @@ speech_therapy/.vscode/settings.json
 speech_therapy/macos/Flutter/GeneratedPluginRegistrant.swift
 speech_therapy/windows/flutter/generated_plugin_registrant.cc
 speech_therapy/windows/flutter/generated_plugin_registrant.cc
+speech_therapy/lib/googleCloudAPIs/g2p_api.dart
+speech_therapy/lib/googleCloudAPIs/gemini_api.dart
+speech_therapy/lib/googleCloudAPIs/text_to_speech_api.dart
