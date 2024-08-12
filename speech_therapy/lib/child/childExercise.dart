@@ -51,10 +51,12 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isListening = false;
   bool _isLoading = true;
+  bool _isPlaying = false; // Track if audio is playing
   String _recognizedText = '';
   bool _showCelebration = false;
   bool aboveSimilarityThreshhold = false;
-  bool _useIPA = true; // Toggle for using IPA
+  bool _useIPA = true;
+  bool micToggle = false; // Toggle for microphone button
 
   @override
   void initState() {
@@ -122,48 +124,69 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     super.dispose();
   }
 
+  Future<void> _toggleListening() async {
+    if (_isPlaying) return; // Do nothing if audio is playing
+
+    if (micToggle == true) {
+      setState(() {
+        micToggle = false;
+      });
+      if (_recognizedText.isNotEmpty) {
+        await _evaluateSpeech(_recognizedText);
+      }
+
+      if (_isListening) {
+        // Stop listening
+        await _stopListening();
+      }
+    } else {
+      setState(() {
+        micToggle = true;
+      });
+      _recognizedText = '';
+      // Start listening
+      await _startListening();
+    }
+  }
+
   Future<void> _startListening() async {
     _recognizedText = '';
-    if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (val) {
-          if (val == 'doneListening') {
-            setState(() {
-              _isListening = false;
-            });
-          }
-        },
-        onError: (val) {
-          print('onError: $val');
+    bool available = await _speech.initialize(
+      onStatus: (val) {
+        if (val == 'doneListening') {
+          // setState(() {
+          //   _isListening = false;
+          // });
+        }
+      },
+      onError: (val) {
+        print('onError: $val');
+        setState(() {
+          _isListening = false;
+        });
+      },
+    );
+
+    if (available) {
+      setState(() => _isListening = true);
+      _speech.listen(
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: false,
+        ),
+        onResult: (val) {
           setState(() {
-            _isListening = false;
+            _recognizedText = val.recognizedWords;
           });
         },
+        localeId: 'en_US',
       );
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          listenOptions: stt.SpeechListenOptions(
-            partialResults: false,
-          ),
-          onResult: (val) {
-            setState(() {
-              _recognizedText = val.recognizedWords;
-            });
-          },
-          localeId: 'en_US',
-        );
-      }
     }
   }
 
   Future<void> _stopListening() async {
     if (_isListening) {
+      await _speech.stop();
       setState(() => _isListening = false);
-      _speech.stop();
-    }
-    if (_recognizedText.isNotEmpty) {
-      await _evaluateSpeech(_recognizedText);
     }
   }
 
@@ -195,21 +218,34 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       _showCelebrationAnimation();
       // Use Gemini and Text-to-Speech APIs
       String encouragement = await GeminiAPI().getEncouragement(
-          "Your Job Is To Encourage A Child That Is Doing Speech Therapy Exercises,The Exercises Are Presented To The Child As Part Of A Game Once He Does This Exercise Close Enough He Can Continue To The Next Level, don't give too specific advice, Therapist Said: $videoTitleLower, Child Said: $recognizedTextLower, Grade By Therapist: $grade%");
-      String audioContent =
-          await TextToSpeechAPI().getSpeechAudio(encouragement);
-      _playAudio(audioContent);
+          "Therapist Said: $videoTitleLower Child Said: $recognizedTextLower , Grade By Therapist: $grade%");
+      await _playAudio(encouragement);
     } else {
       _updateDatabase(false, grade);
     }
   }
 
-  Future<void> _playAudio(String audioContent) async {
+  Future<void> _playAudio(String text) async {
     try {
+      setState(() {
+        _isPlaying = true;
+      });
+
+      String audioContent = await TextToSpeechAPI().getSpeechAudio(text);
       final bytes = base64Decode(audioContent);
       await _audioPlayer.play(BytesSource(bytes));
+
+      // Wait until the audio finishes playing
+      _audioPlayer.onPlayerComplete.listen((event) {
+        setState(() {
+          _isPlaying = false;
+        });
+      });
     } catch (e) {
       _showErrorDialog('Error playing audio: $e');
+      setState(() {
+        _isPlaying = false;
+      });
     }
   }
 
@@ -329,14 +365,10 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                         style: TextStyle(
                             fontSize: 24, fontWeight: FontWeight.bold),
                       ),
-                      GestureDetector(
-                        onTapDown: (_) => _startListening(),
-                        onTapUp: (_) => _stopListening(),
-                        child: FloatingActionButton(
-                          onPressed:
-                              () {}, // Required parameter, not used here.
-                          child:
-                              Icon(_isListening ? Icons.mic : Icons.mic_none),
+                      FloatingActionButton(
+                        onPressed: _isPlaying ? null : _toggleListening,
+                        child: Icon(
+                          micToggle ? Icons.mic : Icons.mic_none,
                         ),
                       ),
                       if (_recognizedText.isNotEmpty)
