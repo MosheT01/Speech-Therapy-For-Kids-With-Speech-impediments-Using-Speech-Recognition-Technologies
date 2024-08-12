@@ -7,3 +7,6 @@ speech_therapy/ios/Runner/GoogleService-Info.plist
 speech_therapy/lib/firebase_options.dart
 speech_therapy/android/app/google-services.json
 speech_therapy/macos/firebase_app_id_file.json
+speech_therapy/lib/googleCloudAPIs/g2p_api.dart
+speech_therapy/lib/googleCloudAPIs/gemini_api.dart
+speech_therapy/lib/googleCloudAPIs/text_to_speech_api.dart
