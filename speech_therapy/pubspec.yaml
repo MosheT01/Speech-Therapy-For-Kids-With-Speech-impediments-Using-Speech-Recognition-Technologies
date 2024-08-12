@@ -37,6 +37,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.6
+  http: ^1.2.2
 
   # Specify your databaseURL here
   # databaseURL: "https://speechtherapyapp-88a94-default-rtdb.asia-southeast1.firebasedatabase.app/"
