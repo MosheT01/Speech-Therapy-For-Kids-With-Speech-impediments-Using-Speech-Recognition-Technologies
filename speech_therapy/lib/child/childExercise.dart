@@ -86,11 +86,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       });
 
       if (kIsWeb) {
-        // On the web, always use the network URL
         _controller =
             VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
       } else {
-        // Attempt to cache the video first, then use the cached file
         final file =
             await CustomCacheManager.instance.getSingleFile(widget.videoUrl);
 
@@ -102,20 +100,31 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         }
       }
 
-      // Initialize the video player
       await _controller.initialize();
 
-      // Initialize Chewie controller
       _chewieController = ChewieController(
         videoPlayerController: _controller,
-        aspectRatio: _controller.value.aspectRatio,
         autoPlay: true,
         looping: false,
+        allowPlaybackSpeedChanging:
+            !_isListening, // Disable controls when mic is active
+        allowFullScreen: !_isListening,
+        showControls: !_isListening,
+        allowMuting: false,
       );
 
-      // Update the state to stop loading and show the video player
       setState(() {
         _isLoading = false;
+      });
+
+      // Listen to the video playing state
+      _controller.addListener(() {
+        setState(() {
+          _isPlaying = _controller.value.isPlaying;
+          if (_isPlaying && _isListening) {
+            _stopListening();
+          }
+        });
       });
     } catch (e) {
       setState(() {
@@ -168,6 +177,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     if (available) {
       setState(() => _isListening = true);
       _micAnimationController.forward();
+      _chewieController.setVolume(0); // Mute the video while listening
+      _controller.pause(); // Pause the video while listening
       _speech.listen(
         listenOptions: stt.SpeechListenOptions(partialResults: true),
         onResult: (val) {
@@ -185,6 +196,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       await _speech.stop();
       setState(() => _isListening = false);
       _micAnimationController.stop();
+      _chewieController.setVolume(1); // Unmute the video when done listening
       if (_recognizedText.isNotEmpty) {
         await _evaluateSpeech(_recognizedText);
         _recognizedText = '';
@@ -200,11 +212,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     String g2pRecognized = recognizedTextLower;
 
     if (_useIPA) {
-      // G2P conversion
       g2pExpected = await G2PAPI().getIPA(videoTitleLower);
       g2pRecognized = await G2PAPI().getIPA(recognizedTextLower);
 
-      // Use the original text if G2P conversion fails
       if (g2pExpected.isEmpty) g2pExpected = videoTitleLower;
       if (g2pRecognized.isEmpty) g2pRecognized = recognizedTextLower;
     }
@@ -356,78 +366,97 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         ],
       ),
       body: Stack(
+        alignment: Alignment.center,
         children: [
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      AspectRatio(
-                        aspectRatio: _controller.value.aspectRatio,
-                        child: Chewie(controller: _chewieController),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'What Did You Hear?',
-                        style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
-                      if (_recognizedText.isEmpty)
-                        //if the user has not spoken anything yet, show a message
-                        Text(
-                          'Please speak into the microphone to start the exercise',
-                          style: TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.bold),
+                      Container(
+                        width: MediaQuery.of(context).size.width * 0.5,
+                        height: MediaQuery.of(context).size.height * 0.5,
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Chewie(controller: _chewieController),
                         ),
-                      if (_recognizedText.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            _recognizedText,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 10),
+                          const Text(
+                            'What Did You Hear?',
                             textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.bold),
                           ),
-                        ),
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: _toggleListening,
-                        child: ScaleTransition(
-                          scale: _micAnimation,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color:
-                                  _isListening ? Colors.redAccent : Colors.blue,
+                          const SizedBox(height: 10),
+                          if (_recognizedText.isEmpty)
+                            Text(
+                              'Please speak into the microphone to start the exercise',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
                             ),
-                            child: Icon(
-                              _isListening ? Icons.mic : Icons.mic_none,
-                              color: Colors.white,
-                              size: 40,
+                          if (_recognizedText.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                _recognizedText,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: _isPlaying ? null : _toggleListening,
+                            child: ScaleTransition(
+                              scale: _micAnimation,
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _isPlaying
+                                      ? Colors.grey
+                                      : _isListening
+                                          ? Colors.redAccent
+                                          : Colors.blue,
+                                ),
+                                child: Icon(
+                                  _isListening ? Icons.mic : Icons.mic_none,
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          if (_recognizedText.isNotEmpty)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                aboveSimilarityThreshhold
+                                    ? const Icon(Icons.check,
+                                        color: Colors.green, size: 30)
+                                    : const Icon(Icons.close,
+                                        color: Colors.red, size: 30),
+                                const SizedBox(width: 10),
+                                Text(
+                                  widget.videoTitle.toLowerCase(),
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      if (_recognizedText.isNotEmpty)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            aboveSimilarityThreshhold
-                                ? const Icon(Icons.check,
-                                    color: Colors.green, size: 30)
-                                : const Icon(Icons.close,
-                                    color: Colors.red, size: 30),
-                            const SizedBox(width: 10),
-                            Text(widget.videoTitle.toLowerCase(),
-                                style: const TextStyle(fontSize: 20)),
-                          ],
-                        ),
                     ],
                   ),
                 ),
