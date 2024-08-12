@@ -11,7 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 bool _isLoading = false;
 
 void main() async {
-  // Ensure Firebase initialization completes before running the app
+  // Ensure Firebase initialization completes before running the appi
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
       Object? isTherapist = isTherapistSnapshot.value;
       return isTherapist;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
@@ -90,13 +90,14 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(
               builder: (context) => TherapistHomePage(userId: userId)),
         );
-      } else {
+      } else if (isTherapist != null && isTherapist == false) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-              builder: (context) =>
-                  ChildHomePage(userId: userId)),
+              builder: (context) => ChildHomePage(userId: userId)),
         );
+      } else {
+        displayError("Something Went Wrong While Loging In");
       }
     } catch (e) {
       // Handle login failure here
