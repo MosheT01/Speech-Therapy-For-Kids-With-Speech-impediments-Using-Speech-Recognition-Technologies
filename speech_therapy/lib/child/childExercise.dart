@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/gemini_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/text_to_speech_api.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:audioplayers/audioplayers.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:firebase_database/firebase_database.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
@@ -44,25 +44,39 @@ class VideoPlaybackPage extends StatefulWidget {
   _VideoPlaybackPageState createState() => _VideoPlaybackPageState();
 }
 
-class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
+class _VideoPlaybackPageState extends State<VideoPlaybackPage>
+    with SingleTickerProviderStateMixin {
   late VideoPlayerController _controller;
   late ChewieController _chewieController;
   late stt.SpeechToText _speech;
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isListening = false;
   bool _isLoading = true;
-  bool _isPlaying = false; // Track if audio is playing
+  bool _isPlaying = false;
   String _recognizedText = '';
   bool _showCelebration = false;
   bool aboveSimilarityThreshhold = false;
   bool _useIPA = true;
-  bool micToggle = false; // Toggle for microphone button
+  bool micToggle = false;
+  late AnimationController _micAnimationController;
+  late Animation<double> _micAnimation;
 
   @override
   void initState() {
     super.initState();
     _initializeVideoPlayer();
     _initializeSpeechToText();
+    _micAnimationController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _micAnimation =
+        Tween<double>(begin: 1.0, end: 1.5).animate(_micAnimationController)
+          ..addStatusListener((status) {
+            if (status == AnimationStatus.completed) {
+              _micAnimationController.reverse();
+            } else if (status == AnimationStatus.dismissed) {
+              _micAnimationController.forward();
+            }
+          });
   }
 
   Future<void> _initializeVideoPlayer() async {
@@ -121,58 +135,41 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     _chewieController.dispose();
     _speech.stop();
     _audioPlayer.dispose();
+    _micAnimationController.dispose();
     super.dispose();
   }
 
   Future<void> _toggleListening() async {
-    if (_isPlaying) return; // Do nothing if audio is playing
-
-    if (micToggle == true) {
-      setState(() {
-        micToggle = false;
-      });
-      if (_recognizedText.isNotEmpty) {
-        await _evaluateSpeech(_recognizedText);
-      }
-
-      if (_isListening) {
-        // Stop listening
-        await _stopListening();
-      }
+    if (_isListening) {
+      await _stopListening();
     } else {
-      setState(() {
-        micToggle = true;
-      });
-      _recognizedText = '';
-      // Start listening
       await _startListening();
     }
   }
 
   Future<void> _startListening() async {
-    _recognizedText = '';
+    if (_isPlaying) {
+      return;
+    }
     bool available = await _speech.initialize(
       onStatus: (val) {
         if (val == 'doneListening') {
-          // setState(() {
-          //   _isListening = false;
-          // });
+          _stopListening();
         }
       },
       onError: (val) {
         print('onError: $val');
         setState(() {
-          _isListening = false;
+          _stopListening();
         });
       },
     );
 
     if (available) {
       setState(() => _isListening = true);
+      _micAnimationController.forward();
       _speech.listen(
-        listenOptions: stt.SpeechListenOptions(
-          partialResults: false,
-        ),
+        listenOptions: stt.SpeechListenOptions(partialResults: true),
         onResult: (val) {
           setState(() {
             _recognizedText = val.recognizedWords;
@@ -187,6 +184,11 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     if (_isListening) {
       await _speech.stop();
       setState(() => _isListening = false);
+      _micAnimationController.stop();
+      if (_recognizedText.isNotEmpty) {
+        await _evaluateSpeech(_recognizedText);
+        _recognizedText = '';
+      }
     }
   }
 
@@ -217,9 +219,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       _updateDatabase(true, grade);
       _showCelebrationAnimation();
       // Use Gemini and Text-to-Speech APIs
-      String encouragement = await GeminiAPI().getEncouragement(
-          "Therapist Said: $videoTitleLower Child Said: $recognizedTextLower , Grade By Therapist: $grade%");
-      await _playAudio(encouragement);
+      try {
+        String encouragement = await GeminiAPI().getEncouragement(
+            "Therapist Said: $videoTitleLower Child Said: $recognizedTextLower , Grade By Therapist: $grade%");
+        await _playAudio(encouragement);
+      } catch (e) {
+        String errorMessage = "Try again, I didn't catch that.";
+        await _playAudio(errorMessage);
+      }
     } else {
       _updateDatabase(false, grade);
     }
@@ -365,38 +372,61 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
                         style: TextStyle(
                             fontSize: 24, fontWeight: FontWeight.bold),
                       ),
-                      FloatingActionButton(
-                        onPressed: _isPlaying ? null : _toggleListening,
-                        child: Icon(
-                          micToggle ? Icons.mic : Icons.mic_none,
+                      const SizedBox(height: 10),
+                      if (_recognizedText.isEmpty)
+                        //if the user has not spoken anything yet, show a message
+                        Text(
+                          'Please speak into the microphone to start the exercise',
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
                         ),
-                      ),
                       if (_recognizedText.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Recognized Text: $_recognizedText',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 20),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  aboveSimilarityThreshhold
-                                      ? const Icon(Icons.check,
-                                          color: Colors.green, size: 30)
-                                      : const Icon(Icons.close,
-                                          color: Colors.red, size: 30),
-                                  const SizedBox(width: 10),
-                                  Text(widget.videoTitle.toLowerCase(),
-                                      style: const TextStyle(fontSize: 20)),
-                                ],
-                              ),
-                            ],
+                          child: Text(
+                            _recognizedText,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
+                        ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: _toggleListening,
+                        child: ScaleTransition(
+                          scale: _micAnimation,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color:
+                                  _isListening ? Colors.redAccent : Colors.blue,
+                            ),
+                            child: Icon(
+                              _isListening ? Icons.mic : Icons.mic_none,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_recognizedText.isNotEmpty)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            aboveSimilarityThreshhold
+                                ? const Icon(Icons.check,
+                                    color: Colors.green, size: 30)
+                                : const Icon(Icons.close,
+                                    color: Colors.red, size: 30),
+                            const SizedBox(width: 10),
+                            Text(widget.videoTitle.toLowerCase(),
+                                style: const TextStyle(fontSize: 20)),
+                          ],
                         ),
                     ],
                   ),
