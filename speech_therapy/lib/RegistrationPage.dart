@@ -91,13 +91,13 @@ class RegistrationPageState extends State<RegistrationPage> {
 
         if (currentStep == 0) {
           bool emailUsed = await emailIsInUse(emailController.text);
-          final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+          final RegExp emailRegex = RegExp(r'^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$');
           if (emailUsed) {
             displayError(
                 "This Email Is Already Registered,try resetting the password!");
           } else if (emailController.text == '' ||
               emailRegex.hasMatch(emailController.text) == false) {
-            displayError("Enter A Valid Email!");
+            displayError("Enter A Valid Email!\nEmail Should Be All Lower-Case!");
           } else {
             setState(() {
               currentStep += 1;
