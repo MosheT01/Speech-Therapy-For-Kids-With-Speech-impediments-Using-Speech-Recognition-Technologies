@@ -543,7 +543,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
                           return ListView.builder(
                             shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
+                            physics: const NeverScrollableScrollPhysics(),
                             itemCount: videoExercises.length,
                             itemBuilder: (context, index) {
                               Map<String, dynamic>? video =
