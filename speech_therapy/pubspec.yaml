@@ -56,6 +56,7 @@ dependencies:
   fluttertoast: ^8.2.6
   flutter_cache_manager: ^3.3.1
   http: 0.13.6
+  rive: ^0.13.12
 
   # Specify your databaseURL here
   # databaseURL: "https://speechtherapyapp-88a94-default-rtdb.asia-southeast1.firebasedatabase.app/"
@@ -85,7 +86,8 @@ flutter:
   #assets:
   # assets/therapist_treating_kid.png
   #- assets/speech_therapy_logo.png
-assets:
-  - assets/
-  - assets/therapist_treating_kid.png
-  - assets/celebration.json
+  assets:
+    - assets/wave,_hear_and_talk.riv
+    - assets/
+    - assets/therapist_treating_kid.png
+    - assets/celebration.json
