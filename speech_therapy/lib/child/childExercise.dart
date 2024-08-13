@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:rive/rive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
@@ -60,12 +61,22 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   bool micToggle = false;
   late AnimationController _micAnimationController;
   late Animation<double> _micAnimation;
+  late RiveAnimationController _riveController;
+  SMIInput<bool>? _talkInput;
+  SMIInput<bool>? _hearInput;
+  SMIInput<bool>? _checkInput;
+  SMIInput<bool>? _successInput;
+  SMIInput<bool>? _failInput;
+
+  late Map<String, dynamic> patientData;
 
   @override
   void initState() {
     super.initState();
     _initializeVideoPlayer();
     _initializeSpeechToText();
+    fetchPatientData();
+    _riveController = SimpleAnimation('idle'); // Initial animation state
     _micAnimationController =
         AnimationController(vsync: this, duration: const Duration(seconds: 1));
     _micAnimation =
@@ -77,6 +88,56 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
               _micAnimationController.forward();
             }
           });
+  }
+
+  void _onRiveInit(Artboard artboard) {
+    final controller =
+        StateMachineController.fromArtboard(artboard, 'State Machine 1');
+    if (controller != null) {
+      artboard.addController(controller);
+      _talkInput = controller.findInput<bool>('Talk');
+      _hearInput = controller.findInput<bool>('Hear');
+      _checkInput = controller.findInput<bool>('Check');
+      _successInput = controller.findInput<bool>('success');
+      _failInput = controller.findInput<bool>('fail');
+    }
+  }
+
+  void _triggerRiveState(String state) {
+    // Ensure that the state machine responds immediately
+    _riveController.isActive = false; // Deactivate to reset the state machine
+    _riveController.isActive = true;
+    _riveController.isActive = false; // Deactivate to reset the state machine
+    _riveController.isActive = true;
+    _resetRiveInputs();
+    switch (state) {
+      case 'Talk':
+        _talkInput?.value = true;
+        break;
+      case 'Hear':
+        _hearInput?.value = true;
+        break;
+      case 'success':
+        _successInput?.value = true;
+        break;
+      case 'fail':
+        _failInput?.value = true;
+        break;
+      default:
+        _riveController.isActive = true; // Default to 'idle'
+    }
+
+    // Ensure that the state machine responds immediately
+    _riveController.isActive = false; // Deactivate to reset the state machine
+    _riveController.isActive = true; // Reactivate to start the new state
+  }
+
+  void _resetRiveInputs() {
+    _talkInput?.value = false;
+    _hearInput?.value = false;
+    _checkInput?.value = false;
+    _successInput?.value = false;
+    _failInput?.value = false;
   }
 
   Future<void> _initializeVideoPlayer() async {
@@ -176,6 +237,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
     if (available) {
       setState(() => _isListening = true);
+      _triggerRiveState('Hear'); // Trigger Rive state to 'Hear'
       _micAnimationController.forward();
       _chewieController.setVolume(0); // Mute the video while listening
       _controller.pause(); // Pause the video while listening
@@ -194,13 +256,41 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   Future<void> _stopListening() async {
     if (_isListening) {
       await _speech.stop();
-      setState(() => _isListening = false);
+      setState(() {
+        _isListening = false;
+        _triggerRiveState('idle'); // Reset Rive state to 'idle'
+      });
       _micAnimationController.stop();
       _chewieController.setVolume(1); // Unmute the video when done listening
       if (_recognizedText.isNotEmpty) {
+        setState(() {
+          _isPlaying = true;
+        });
         await _evaluateSpeech(_recognizedText);
         _recognizedText = '';
       }
+    }
+  }
+
+//fetch patient data from the database
+  Future<void> fetchPatientData() async {
+    DatabaseReference ref = FirebaseDatabase.instance
+        .ref("users")
+        .child(widget.therapistID)
+        .child("patients")
+        .child(widget.userId);
+
+    try {
+      final dataSnapshot = await ref.once();
+      final value = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
+
+      if (value != null) {
+        setState(() {
+          patientData = Map<String, dynamic>.from(value);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient data: $e');
     }
   }
 
@@ -225,43 +315,48 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     aboveSimilarityThreshhold = similarity >= 0.80;
     int grade = (similarity * 100).toInt();
 
-    if (true) {
-      _updateDatabase(true, grade);
-      _showCelebrationAnimation();
-      // Use Gemini and Text-to-Speech APIs
-      try {
-        String encouragement = await GeminiAPI().getEncouragement(
-            "Therapist Said: $videoTitleLower Child Said: $recognizedTextLower , Grade By Therapist: $grade%");
-        await _playAudio(encouragement);
-      } catch (e) {
-        String errorMessage = "Try again, I didn't catch that.";
-        await _playAudio(errorMessage);
-      }
-    } else {
-      _updateDatabase(false, grade);
+    _updateDatabase(true, grade);
+    //_showCelebrationAnimation();
+    // Use Gemini and Text-to-Speech APIs
+    try {
+      String encouragement = await GeminiAPI().getEncouragement(
+          "Therapist Said: $videoTitleLower Child Said: $recognizedTextLower , Grade By Therapist: $grade%, child name: ${patientData['firstName']}");
+      await _playAudio(encouragement, success: aboveSimilarityThreshhold);
+    } catch (e) {
+      String errorMessage = "Try again, I didn't catch that.";
+      await _playAudio(errorMessage, success: false);
     }
   }
 
-  Future<void> _playAudio(String text) async {
+  Future<void> _playAudio(String text, {required bool success}) async {
     try {
       setState(() {
         _isPlaying = true;
       });
+      setState(() {
+        _triggerRiveState(
+            success ? 'success' : 'fail'); // Trigger success or fail state
+      });
 
       String audioContent = await TextToSpeechAPI().getSpeechAudio(text);
       final bytes = base64Decode(audioContent);
+      setState(() {
+        _triggerRiveState('Talk'); // Trigger Rive state to 'Talk'
+      });
       await _audioPlayer.play(BytesSource(bytes));
 
       // Wait until the audio finishes playing
       _audioPlayer.onPlayerComplete.listen((event) {
         setState(() {
           _isPlaying = false;
+          _triggerRiveState('idle'); // Reset Rive state to 'idle' after audio
         });
       });
     } catch (e) {
       _showErrorDialog('Error playing audio: $e');
       setState(() {
         _isPlaying = false;
+        _triggerRiveState('idle'); // Reset Rive state to 'idle' on error
       });
     }
   }
@@ -395,6 +490,20 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                                 fontSize: 24, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 10),
+                          Positioned(
+                            bottom: 100,
+                            right: 10,
+                            child: SizedBox(
+                              height: 200,
+                              width: 200,
+                              child: RiveAnimation.asset(
+                                'assets/wave,_hear_and_talk.riv',
+                                controllers: [_riveController],
+                                fit: BoxFit.contain,
+                                onInit: _onRiveInit,
+                              ),
+                            ),
+                          ),
                           if (_recognizedText.isEmpty)
                             Text(
                               'Please speak into the microphone to start the exercise',
