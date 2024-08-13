@@ -224,14 +224,15 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     bool available = await _speech.initialize(
       onStatus: (val) {
         if (val == 'doneListening') {
-          _stopListening();
+          // _stopListening();
+          _toggleListening();
         }
         print(val);
       },
       onError: (val) {
         print('onError: $val');
         setState(() {
-          _stopListening();
+          _toggleListening();
         });
       },
     );
