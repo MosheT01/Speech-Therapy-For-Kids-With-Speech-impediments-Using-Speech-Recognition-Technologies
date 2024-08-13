@@ -491,13 +491,38 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.5,
-                        height: MediaQuery.of(context).size.height * 0.5,
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: Chewie(controller: _chewieController),
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Circular video container
+                          ClipOval(
+                            child: Container(
+                              width: MediaQuery.of(context).size.width * 0.4,
+                              height: MediaQuery.of(context).size.width *
+                                  0.4, // Making height equal to width for a perfect circle
+                              child: AspectRatio(
+                                aspectRatio: _controller.value
+                                    .aspectRatio, // Use the video's aspect ratio
+                                child: Chewie(controller: _chewieController),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(
+                              width:
+                                  20), // Space between video and Rive animation
+                          // Rive animation
+                          SizedBox(
+                            height: 150,
+                            width: 150,
+                            child: RiveAnimation.asset(
+                              'assets/wave,_hear_and_talk.riv',
+                              controllers: [_riveController],
+                              fit: BoxFit.contain,
+                              onInit: _onRiveInit,
+                            ),
+                          ),
+                        ],
                       ),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -511,20 +536,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                                 fontSize: 24, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 10),
-                          Positioned(
-                            bottom: 100,
-                            right: 10,
-                            child: SizedBox(
-                              height: 200,
-                              width: 200,
-                              child: RiveAnimation.asset(
-                                'assets/wave,_hear_and_talk.riv',
-                                controllers: [_riveController],
-                                fit: BoxFit.contain,
-                                onInit: _onRiveInit,
-                              ),
-                            ),
-                          ),
                           if (_recognizedText.isEmpty)
                             Text(
                               'Please speak into the microphone to start the exercise',
