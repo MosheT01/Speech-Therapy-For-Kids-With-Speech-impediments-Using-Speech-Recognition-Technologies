@@ -226,6 +226,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         if (val == 'doneListening') {
           _stopListening();
         }
+        print(val);
       },
       onError: (val) {
         print('onError: $val');
@@ -302,11 +303,26 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     String g2pRecognized = recognizedTextLower;
 
     if (_useIPA) {
-      g2pExpected = await G2PAPI().getIPA(videoTitleLower);
-      g2pRecognized = await G2PAPI().getIPA(recognizedTextLower);
+      String combinedText = '$videoTitleLower,$recognizedTextLower';
+      String combinedIPA;
+      try {
+        combinedIPA = await G2PAPI().getIPA(combinedText);
+      } catch (e) {
+        combinedIPA = '';
+      }
 
-      if (g2pExpected.isEmpty) g2pExpected = videoTitleLower;
-      if (g2pRecognized.isEmpty) g2pRecognized = recognizedTextLower;
+      List<String> ipaList = combinedIPA.split(',');
+
+      g2pExpected = ipaList.isNotEmpty &&
+              !ipaList[0].isEmpty &&
+              !ipaList[0].toLowerCase().contains('nan')
+          ? ipaList[0]
+          : videoTitleLower;
+      g2pRecognized = ipaList.length > 1 &&
+              !ipaList[1].isEmpty &&
+              !ipaList[1].toLowerCase().contains('nan')
+          ? ipaList[1]
+          : recognizedTextLower;
     }
 
     print('Expected: $g2pExpected');
@@ -319,10 +335,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     //_showCelebrationAnimation();
     // Use Gemini and Text-to-Speech APIs
     try {
+      final stopwatch = Stopwatch()..start();
       String encouragement = await GeminiAPI().getEncouragement(
-          "Therapist Said: $videoTitleLower Child Said: $recognizedTextLower , Grade By Therapist: $grade%, child name: ${patientData['firstName']}");
+          "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success:'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
+      stopwatch.stop();
+      print('getEncouragement runtime: ${stopwatch.elapsed}');
       await _playAudio(encouragement, success: aboveSimilarityThreshhold);
     } catch (e) {
+      print("error in gemini api $e");
       String errorMessage = "Try again, I didn't catch that.";
       await _playAudio(errorMessage, success: false);
     }
