@@ -6,6 +6,10 @@ import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:speech_therapy/VideoPreviewScreen.dart';
 import 'Camera.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+//TODO fix stats in list
+//TODO CHILD SAVING TO DATABASE STATS
+//TODO WIPE DATABASE
+//TODO send email to parent
 
 class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
@@ -40,7 +44,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   bool isLoading = false;
   bool _isUploading = false; // Track video upload status
 
-  //fetch patient data from the database
+  // Fetch patient data from the database
   Future<void> fetchPatientData() async {
     setState(() {
       isLoading = true;
@@ -120,6 +124,28 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             });
           }
 
+          // Calculate total attempts, successful attempts, and average time spent from sessions
+          if (videoData.containsKey('sessions')) {
+            Map<dynamic, dynamic> sessions = videoData['sessions'];
+
+            int totalAttempts = 0;
+            int successfulAttempts = 0;
+            int totalTimeSpent = 0;
+
+            sessions.forEach((sessionKey, sessionData) {
+              totalAttempts += (sessionData['totalAttempts'] ?? 0) as int;
+              successfulAttempts +=
+                  (sessionData['successfulAttempts'] ?? 0) as int;
+              totalTimeSpent += (sessionData['timeSpentInSession'] ?? 0) as int;
+            });
+
+            videoData['totalAttempts'] = totalAttempts;
+            videoData['successfulAttempts'] = successfulAttempts;
+            videoData['averageTimeSpent'] = totalTimeSpent > 0
+                ? totalTimeSpent ~/ sessions.length
+                : 0; // Calculate the average time spent across sessions
+          }
+
           videos.add(videoData);
         });
 
@@ -132,10 +158,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   void _showEditDialog(BuildContext context) {
-    String firstName = patientData['firstName'];
-    String lastName = patientData['lastName'];
-    int age = patientData['age'];
-    String gender = patientData['gender'];
+    String firstName = patientData['firstName'] ?? 'N/A';
+    String lastName = patientData['lastName'] ?? 'N/A';
+    int age = patientData['age'] ?? 0;
+    String gender = patientData['gender'] ?? 'N/A';
 
     final firstNameController = TextEditingController(text: firstName);
     final lastNameController = TextEditingController(text: lastName);
@@ -468,53 +494,49 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    if (patientData.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Row(
                             children: [
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        // Call _showEditDialog within setState
-                                        _showEditDialog(context);
-                                      });
-                                    },
-                                    child: const Text('Edit Patient Details'),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      _showDeleteWarningDialog(context);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                    ),
-                                    child: const Text('Delete Patient'),
-                                  ),
-                                ],
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _showEditDialog(context);
+                                  });
+                                },
+                                child: const Text('Edit Patient Details'),
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Name: ${patientData['firstName']} ${patientData['lastName']}',
-                                style: const TextStyle(fontSize: 16),
+                              const SizedBox(width: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  _showDeleteWarningDialog(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('Delete Patient'),
                               ),
-                              Text(
-                                'Age: ${patientData['age']}',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              Text(
-                                'Gender: ${patientData['gender']}',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              const SizedBox(height: 20),
                             ],
                           ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Name: ${patientData['firstName'] ?? 'N/A'} ${patientData['lastName'] ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            'Age: ${patientData['age']?.toString() ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            'Gender: ${patientData['gender'] ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
                     const Divider(
                       color: Colors.black,
                       thickness: 1,
@@ -524,7 +546,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    FutureBuilder(
+                    FutureBuilder<List<Map<String, dynamic>>>(
                       future: fetchVideoExercises(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
@@ -537,10 +559,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           }
                         } else {
                           videoExercises = snapshot.data ?? [];
-                          //sort the video exercises by key
-                          videoExercises
-                              .sort((a, b) => a['key'].compareTo(b['key']));
-
                           return ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -548,10 +566,43 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                             itemBuilder: (context, index) {
                               Map<String, dynamic>? video =
                                   videoExercises[index];
+
+                              // Handle null values and default cases
+                              final String word = video['word'] ?? 'N/A';
+                              final int difficulty = video['difficulty'] ?? 0;
+                              final int grade = video['grade'] ?? 0;
+                              final int overallGrade =
+                                  video['overallGrade'] ?? 0;
+                              final int totalAttempts =
+                                  video['totalAttempts'] ?? 0;
+                              final int averageTimeSpentInSeconds =
+                                  video['averageTimeSpent'] ?? 0;
+
+                              final Duration averageTimeSpent =
+                                  Duration(seconds: averageTimeSpentInSeconds);
+
+                              final String status = video['status'] ?? 'N/A';
+
                               return ListTile(
-                                title: Text("${video['word'] ?? 'Unknown'}"),
-                                subtitle: Text(
-                                    'Video Exercise ${index + 1}\nDifficulty: ${video['difficulty'] ?? 'Unknown'}\nGrade: ${video['grade'] ?? 'N/A'}'),
+                                title: Text(word),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Video Exercise ${index + 1}'),
+                                    Text(
+                                        'Difficulty: ${difficulty != 0 ? difficulty.toString() : 'N/A'}'),
+                                    Text(
+                                        'Grade: ${grade != 0 ? grade.toString() : 'N/A'}'),
+                                    Text(
+                                        'Overall Grade: ${overallGrade != 0 ? overallGrade.toString() : 'N/A'}'),
+                                    Text(
+                                        'Total Attempts: ${totalAttempts != 0 ? totalAttempts.toString() : 'N/A'}'),
+                                    Text(
+                                      'Average Time Spent: ${averageTimeSpent.inMinutes}m ${averageTimeSpent.inSeconds.remainder(60)}s',
+                                    ),
+                                    Text('Status: $status'),
+                                  ],
+                                ),
                                 leading: const Icon(Icons.video_library),
                                 onTap: () {
                                   String? downloadURL = video['downloadURL'];
@@ -588,7 +639,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                   onUploadComplete: () {
                                     setState(() {
                                       _isUploading = false;
-                                      // Fetch the videos again to update the list
                                       fetchVideoExercises();
                                     });
                                   },
@@ -596,7 +646,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                               ),
                             ).then((_) {
                               setState(() {
-                                // Refresh the UI after returning from the CameraExampleHome page
                                 fetchVideoExercises();
                               });
                             });
@@ -605,24 +654,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       },
                       child: const Text('Add Video Exercise'),
                     ),
-                    //add divider
-                    const Divider(
-                      color: Colors.black,
-                      thickness: 1,
-                    ),
-                    // //schedule appointment section
-                    // const Text(
-                    //   'Schedule Appointment:',
-                    //   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    // ),
-                    // const SizedBox(height: 10),
-
-                    // ElevatedButton(
-                    //   onPressed: () {
-                    //     // Implement your logic for scheduling an appointment here
-                    //   },
-                    //   child: const Text('Schedule Appointment'),
-                    // ),
                   ],
                 ),
               ),
