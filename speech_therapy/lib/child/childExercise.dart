@@ -48,6 +48,26 @@ class VideoPlaybackPage extends StatefulWidget {
   _VideoPlaybackPageState createState() => _VideoPlaybackPageState();
 }
 
+class Attempt {
+  final String recognizedWord;
+  final double grade;
+  final bool success;
+
+  Attempt({
+    required this.recognizedWord,
+    required this.grade,
+    required this.success,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'recognizedWord': recognizedWord,
+      'grade': grade,
+      'success': success,
+    };
+  }
+}
+
 class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     with SingleTickerProviderStateMixin {
   late VideoPlayerController _controller;
@@ -72,6 +92,11 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   late Map<String, dynamic> patientData;
   final stt.SpeechToText _speech =
       SpeechService().speech; // Access the singleton
+  // Use the current timestamp as the session ID
+  String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+  DateTime startTime = DateTime.now();
+
+  List<Attempt> _attempts = [];
 
   @override
   void initState() {
@@ -94,18 +119,18 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     SpeechService().setStatusCallback((status) {
       print("Status: $status");
       if ((status.contains('done') || status.contains('notListening')) &&
-          _recognizedText.isNotEmpty) {
-        _stopListening();
+          _recognizedText.isEmpty) {
+        return;
       }
       if ((status.contains('done') ||
           (status.contains('notListening')) && _recognizedText.isEmpty)) {
-        _startListening();
+        _stopListening();
       }
     });
 
     SpeechService().setErrorCallback((error) {
       print("Error: $error");
-      _startListening();
+      _stopListening();
     });
   }
 
@@ -251,7 +276,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         partialResults: true,
         cancelOnError: false,
       ),
-      pauseFor: const Duration(seconds: 2),
+      pauseFor: kIsWeb ? Duration(seconds: 2) : null,
       onResult: (val) {
         setState(() {
           _recognizedText = val.recognizedWords;
@@ -324,15 +349,21 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     print('Recognized: $g2pRecognized');
     double similarity = _calculateSimilarity(g2pExpected, g2pRecognized);
     aboveSimilarityThreshhold = similarity >= 0.80;
-    int grade = (similarity * 100).toInt();
+    int grade =
+        (similarity * 100).toInt(); // Add the current attempt to the list
+    if (recognizedTextLower.contains(videoTitleLower)) {
+      aboveSimilarityThreshhold = true;
+      grade = 95;
+    }
+    _attempts.add(Attempt(
+      recognizedWord: recognizedText,
+      grade: grade.toDouble(),
+      success: aboveSimilarityThreshhold,
+    ));
 
-    _updateDatabase(true, grade);
-
+    // If this attempt is successful, calculate session metrics and save
     if (aboveSimilarityThreshhold) {
       _playCelebrationAnimation();
-    }
-    // Play corresponding sound based on similarity threshold
-    if (aboveSimilarityThreshhold) {
       await _playFeedbackSound('win.wav', success: true);
     } else {
       await _playFeedbackSound('lose.wav', success: false);
@@ -341,7 +372,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     // Use Gemini and Text-to-Speech APIs
     try {
       String encouragement = await GeminiAPI().getEncouragement(
-          "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success:'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
+          "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success(exercise passed we go to the next level):'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
       await _playAudio(
         encouragement,
       );
@@ -355,6 +386,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       _isPlaying = false;
     });
     if (aboveSimilarityThreshhold) {
+      await _updateOverallGradeAndSessionMetrics(widget.videoKey);
       Navigator.pop(context);
     }
   }
@@ -448,23 +480,118 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     return a < b ? (a < c ? a : c) : (b < c ? b : c);
   }
 
-  void _updateDatabase(bool completed, int grade) {
-    DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
-        'users/${widget.therapistID}/patients/${widget.userId}/videos/${widget.videoKey}');
-    databaseReference.update({
-      'status': completed ? 'childAttempted' : 'childDidNotAttempt',
-      'grade': grade,
-    }).catchError((error) {
-      Fluttertoast.showToast(
-          msg: "Failed to update database: $error",
+  Future<void> _updateOverallGradeAndSessionMetrics(String videoId) async {
+    try {
+      // Calculate total attempts until success
+      int totalAttemptsUntilSuccess = _attempts.length;
+
+      // Calculate and update the overall grade for the video
+      int overallGrade = await _calculateAndUpdateOverallGrade(videoId);
+
+      // Use the session ID to save each session separately
+      DatabaseReference sessionRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions/$sessionId');
+
+      final sessionMetrics = {
+        'attempts': _attempts.map((attempt) => attempt.toJson()).toList(),
+        'successfulAttempts':
+            _attempts.where((attempt) => attempt.success).length,
+        'totalAttempts': totalAttemptsUntilSuccess,
+        'timeSpentInSession':
+            _totalTimeSpent.inSeconds, // Save the total time spent in seconds
+      };
+
+      // Update the session data
+      await sessionRef.set(sessionMetrics).then((_) {
+        print("Session metrics updated successfully.");
+      }).catchError((error) {
+        Fluttertoast.showToast(
+          msg: "Failed to update session metrics: $error",
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
           backgroundColor: Colors.red,
           textColor: Colors.white,
-          fontSize: 16.0);
-    });
+          fontSize: 16.0,
+        );
+      });
+    } catch (e) {
+      print('Error updating session metrics: $e');
+      Fluttertoast.showToast(
+        msg: "Failed to update database: $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
   }
+
+  Future<int> _calculateAndUpdateOverallGrade(String videoId) async {
+    try {
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      int totalGrade = 0;
+      int sessionCount = 0;
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        sessions.forEach((key, sessionData) {
+          if (sessionData['attempts'] != null) {
+            List<dynamic> attempts = sessionData['attempts'];
+            int lastAttemptGrade = (attempts.last['grade'] ?? 0).toInt();
+            totalGrade += lastAttemptGrade;
+            sessionCount++;
+          }
+        });
+      }
+
+      int overallGrade = sessionCount > 0 ? totalGrade ~/ sessionCount : 0;
+
+      // Update overall grade directly under the video key
+      DatabaseReference videoRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId');
+
+      await videoRef.update({
+        'overallGrade': overallGrade,
+      }).then((_) {
+        print("Overall grade updated successfully.");
+      }).catchError((error) {
+        Fluttertoast.showToast(
+          msg: "Failed to update overall grade: $error",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      });
+
+      return overallGrade;
+    } catch (e) {
+      print('Error calculating overall grade: $e');
+      Fluttertoast.showToast(
+        msg: "Failed to calculate overall grade: $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+      return 0;
+    }
+  }
+
+  Duration get _totalTimeSpent => DateTime.now().difference(startTime);
 
   void _showErrorDialog(String message) {
     showDialog(
@@ -610,7 +737,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                 if (_showCelebration)
                   Center(
                     child: Lottie.asset(
-                      'celebration.json',
+                      'assets/celebration.json',
                       width: 1000,
                       height: 1000,
                       fit: BoxFit.cover,
