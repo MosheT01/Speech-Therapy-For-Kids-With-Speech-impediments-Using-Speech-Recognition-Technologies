@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/gemini_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/text_to_speech_api.dart';
+import 'package:speech_therapy/speech_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -50,7 +52,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     with SingleTickerProviderStateMixin {
   late VideoPlayerController _controller;
   late ChewieController _chewieController;
-  late stt.SpeechToText _speech;
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isListening = false;
   bool _isLoading = true;
@@ -69,12 +70,13 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   SMIInput<bool>? _successInput;
   SMIInput<bool>? _failInput;
   late Map<String, dynamic> patientData;
+  final stt.SpeechToText _speech =
+      SpeechService().speech; // Access the singleton
 
   @override
   void initState() {
     super.initState();
     _initializeVideoPlayer();
-    _initializeSpeechToText();
     fetchPatientData();
     _riveController = SimpleAnimation('idle'); // Initial animation state
     _micAnimationController =
@@ -88,6 +90,22 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
               _micAnimationController.forward();
             }
           });
+    // Set the status and error callbacks
+    SpeechService().setStatusCallback((status) {
+      print("Status: $status");
+      if ((status.contains('done') || status.contains('notListening')) &&
+          _recognizedText.isNotEmpty) {
+        _stopListening();
+      }
+      if (status.contains('done') && _recognizedText.isEmpty) {
+        _startListening();
+      }
+    });
+
+    SpeechService().setErrorCallback((error) {
+      print("Error: $error");
+      _startListening();
+    });
   }
 
   void _onRiveInit(Artboard artboard) {
@@ -104,6 +122,11 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   void _triggerRiveState(String state) {
+    // Ensure that the state machine responds immediately
+    _riveController.isActive = false; // Deactivate to reset the state machine
+    _riveController.isActive = true;
+    _riveController.isActive = false; // Deactivate to reset the state machine
+    _riveController.isActive = true;
     _resetRiveInputs();
     switch (state) {
       case 'Talk':
@@ -121,6 +144,10 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       default:
         _riveController.isActive = true; // Default to 'idle'
     }
+
+    // Ensure that the state machine responds immediately
+    _riveController.isActive = false; // Deactivate to reset the state machine
+    _riveController.isActive = true; // Reactivate to start the new state
   }
 
   void _resetRiveInputs() {
@@ -186,10 +213,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     }
   }
 
-  void _initializeSpeechToText() {
-    _speech = stt.SpeechToText();
-  }
-
   @override
   void dispose() {
     _controller.dispose();
@@ -212,40 +235,28 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Future<void> _startListening() async {
-    if (_isPlaying) {
+    if (_isPlaying || !_speech.isAvailable) {
+      print("Cannot start listening.");
       return;
     }
-    bool available = await _speech.initialize(
-      onStatus: (val) {
-        if (val == 'done' || val == 'notListening') {
-          _toggleListening();
-        }
-        print(val);
-      },
-      onError: (val) {
-        print('onError: $val');
+
+    setState(() => _isListening = true);
+    _triggerRiveState('Hear');
+    _micAnimationController.forward();
+    _chewieController.setVolume(0);
+    _controller.pause();
+    _speech.listen(
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: false,
+      ),
+      onResult: (val) {
         setState(() {
-          _toggleListening();
+          _recognizedText = val.recognizedWords;
         });
       },
+      localeId: 'en_US',
     );
-
-    if (available) {
-      setState(() => _isListening = true);
-      _triggerRiveState('Hear'); // Trigger Rive state to 'Hear'
-      _micAnimationController.forward();
-      _chewieController.setVolume(0); // Mute the video while listening
-      _controller.pause(); // Pause the video while listening
-      _speech.listen(
-        listenOptions: stt.SpeechListenOptions(partialResults: true),
-        onResult: (val) {
-          setState(() {
-            _recognizedText = val.recognizedWords;
-          });
-        },
-        localeId: 'en_US',
-      );
-    }
   }
 
   Future<void> _stopListening() async {
@@ -253,10 +264,10 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       await _speech.stop();
       setState(() {
         _isListening = false;
-        _triggerRiveState('idle'); // Reset Rive state to 'idle'
+        _triggerRiveState('idle');
       });
       _micAnimationController.stop();
-      _chewieController.setVolume(1); // Unmute the video when done listening
+      _chewieController.setVolume(1);
       if (_recognizedText.isNotEmpty) {
         await _evaluateSpeech(_recognizedText);
         setState(() {
@@ -343,6 +354,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   Future<void> _playFeedbackSound(String soundFilePath,
       {required bool success}) async {
     try {
+      await Future.delayed(Duration(milliseconds: 500));
       setState(() {
         _triggerRiveState(
             success ? 'success' : 'fail'); // Trigger success or fail state

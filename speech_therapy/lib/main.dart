@@ -1,6 +1,7 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_therapy/child/childHomePage.dart';
+import 'package:speech_therapy/speech_service.dart';
 import 'ResetPasswordPage.dart';
 import 'therapist/therapist_home_page.dart'; // Import the therapist homepage file
 import 'registrationPage.dart'; // Import the registration page file
@@ -16,7 +17,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  //
+  // Initialize the SpeechService singleton
+  await SpeechService().initialize();
   runApp(const MyApp());
 }
 
