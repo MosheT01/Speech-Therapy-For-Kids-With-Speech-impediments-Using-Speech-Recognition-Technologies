@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:rive/rive.dart';
 import 'package:flutter/foundation.dart';
+import 'package:rive/rive.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/gemini_api.dart';
@@ -67,7 +68,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   SMIInput<bool>? _checkInput;
   SMIInput<bool>? _successInput;
   SMIInput<bool>? _failInput;
-
   late Map<String, dynamic> patientData;
 
   @override
@@ -104,11 +104,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   void _triggerRiveState(String state) {
-    // Ensure that the state machine responds immediately
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true;
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true;
     _resetRiveInputs();
     switch (state) {
       case 'Talk':
@@ -126,10 +121,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       default:
         _riveController.isActive = true; // Default to 'idle'
     }
-
-    // Ensure that the state machine responds immediately
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true; // Reactivate to start the new state
   }
 
   void _resetRiveInputs() {
@@ -210,6 +201,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Future<void> _toggleListening() async {
+    if (_isPlaying) {
+      return;
+    }
     if (_isListening) {
       await _stopListening();
     } else {
@@ -264,16 +258,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       _micAnimationController.stop();
       _chewieController.setVolume(1); // Unmute the video when done listening
       if (_recognizedText.isNotEmpty) {
-        setState(() {
-          _isPlaying = true;
-        });
         await _evaluateSpeech(_recognizedText);
-        _recognizedText = '';
+        setState(() {
+          _recognizedText = '';
+        });
       }
     }
   }
 
-//fetch patient data from the database
   Future<void> fetchPatientData() async {
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
@@ -296,6 +288,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Future<void> _evaluateSpeech(String recognizedText) async {
+    setState(() {
+      _isPlaying = true;
+    });
     String recognizedTextLower = recognizedText.toLowerCase();
     String videoTitleLower = widget.videoTitle.toLowerCase();
 
@@ -322,59 +317,65 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
     // Play corresponding sound based on similarity threshold
     if (aboveSimilarityThreshhold) {
-      await _playFeedbackSound('win.wav');
+      await _playFeedbackSound('win.wav', success: true);
     } else {
-      await _playFeedbackSound('lose.wav');
+      await _playFeedbackSound('lose.wav', success: false);
     }
 
     // Use Gemini and Text-to-Speech APIs
     try {
       String encouragement = await GeminiAPI().getEncouragement(
           "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success:'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
-      await _playAudio(encouragement, success: aboveSimilarityThreshhold);
+      await _playAudio(
+        encouragement,
+      );
+      print('Encouragement: $encouragement');
     } catch (e) {
       print("error in gemini api $e");
       String errorMessage = "Try again, I didn't catch that.";
-      await _playAudio(errorMessage, success: false);
+      await _playAudio(errorMessage);
     }
+    setState(() {
+      _isPlaying = false;
+    });
   }
 
-  Future<void> _playFeedbackSound(String soundFilePath) async {
+  Future<void> _playFeedbackSound(String soundFilePath,
+      {required bool success}) async {
     try {
-      await _audioPlayer.play(AssetSource(soundFilePath));
+      setState(() {
+        _triggerRiveState(
+            success ? 'success' : 'fail'); // Trigger success or fail state
+      });
+      _audioPlayer.play(AssetSource(soundFilePath));
     } catch (e) {
       _showErrorDialog('Error playing sound: $e');
     }
   }
 
-  Future<void> _playAudio(String text, {required bool success}) async {
+  Future<void> _playAudio(String text) async {
     try {
-      setState(() {
-        _isPlaying = true;
-      });
-      setState(() {
-        _triggerRiveState(
-            success ? 'success' : 'fail'); // Trigger success or fail state
-      });
-
       String audioContent = await TextToSpeechAPI().getSpeechAudio(text);
       final bytes = base64Decode(audioContent);
       setState(() {
         _triggerRiveState('Talk'); // Trigger Rive state to 'Talk'
       });
-      await _audioPlayer.play(BytesSource(bytes));
 
-      // Wait until the audio finishes playing
+      final completer = Completer<void>();
+
+      // Listen for the completion of the audio
       _audioPlayer.onPlayerComplete.listen((event) {
         setState(() {
-          _isPlaying = false;
           _triggerRiveState('idle'); // Reset Rive state to 'idle' after audio
         });
+        completer.complete(); // Complete the future
       });
+
+      await _audioPlayer.play(BytesSource(bytes));
+      await completer.future; // Wait until the audio is finished playing
     } catch (e) {
-      _showErrorDialog('Error playing audio: $e');
+      print('Error playing audio: $e');
       setState(() {
-        _isPlaying = false;
         _triggerRiveState('idle'); // Reset Rive state to 'idle' on error
       });
     }
@@ -385,7 +386,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     double maxLen =
         s1.length > s2.length ? s1.length.toDouble() : s2.length.toDouble();
     double similarity = 1.0 - (editDistance / maxLen);
-    print(similarity.toStringAsFixed(2));
     return similarity;
   }
 
@@ -452,17 +452,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     );
   }
 
-  void _showCelebrationAnimation() {
-    setState(() {
-      _showCelebration = true;
-    });
-    Future.delayed(const Duration(seconds: 3), () {
-      setState(() {
-        _showCelebration = false;
-      });
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -481,127 +470,104 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Video player expands to fill available space
-                    Expanded(
-                      child: AspectRatio(
-                        aspectRatio: _controller.value.aspectRatio,
-                        child: Chewie(controller: _chewieController!),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Video player expands to fill available space
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: _controller.value.aspectRatio,
+                    child: Chewie(controller: _chewieController!),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'What Did You Hear?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'What Did You Hear?',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
+                      const SizedBox(height: 10),
+                      if (_recognizedText.isEmpty)
+                        const Text(
+                          'Please speak into the microphone to start the exercise',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      if (_recognizedText.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            _recognizedText,
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 10),
-                          if (_recognizedText.isEmpty)
-                            const Text(
-                              'Please speak into the microphone to start the exercise',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          if (_recognizedText.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                _recognizedText,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          // This row should adapt and space evenly
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Flexible(
-                                child: GestureDetector(
-                                  onTap: _isPlaying ? null : _toggleListening,
-                                  child: ScaleTransition(
-                                    scale: _micAnimation,
-                                    child: Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: _isPlaying
-                                            ? Colors.grey
-                                            : _isListening
-                                                ? Colors.redAccent
-                                                : Colors.blue,
-                                      ),
-                                      child: Icon(
-                                        _isListening
-                                            ? Icons.mic
-                                            : Icons.mic_none,
-                                        color: Colors.white,
-                                        size: 40,
-                                      ),
-                                    ),
+                        ),
+                      // This row should adapt and space evenly
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: GestureDetector(
+                              onTap: _isPlaying ? null : _toggleListening,
+                              child: ScaleTransition(
+                                scale: _micAnimation,
+                                child: Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _isPlaying
+                                        ? Colors.grey
+                                        : _isListening
+                                            ? Colors.redAccent
+                                            : Colors.blue,
+                                  ),
+                                  child: Icon(
+                                    _isListening ? Icons.mic : Icons.mic_none,
+                                    color: Colors.white,
+                                    size: 40,
                                   ),
                                 ),
                               ),
-                              const SizedBox(
-                                  width:
-                                      20), // Add space between the mic and animation
-                              Flexible(
-                                child: SizedBox(
-                                  height: 100, // Adjust the size dynamically
-                                  width: 100,
-                                  child: RiveAnimation.asset(
-                                    'assets/wave,_hear_and_talk.riv',
-                                    controllers: [_riveController],
-                                    fit: BoxFit.contain,
-                                    onInit: _onRiveInit,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          if (_recognizedText.isNotEmpty)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                aboveSimilarityThreshhold
-                                    ? const Icon(Icons.check,
-                                        color: Colors.green, size: 30)
-                                    : const Icon(Icons.close,
-                                        color: Colors.red, size: 30),
-                                const SizedBox(width: 10),
-                                Text(
-                                  widget.videoTitle.toLowerCase(),
-                                  style: const TextStyle(fontSize: 20),
-                                ),
-                              ],
                             ),
+                          ),
+                          const SizedBox(
+                              width:
+                                  20), // Add space between the mic and animation
+                          Flexible(
+                            child: SizedBox(
+                              height: 100, // Adjust the size dynamically
+                              width: 100,
+                              child: RiveAnimation.asset(
+                                'assets/wave,_hear_and_talk.riv',
+                                controllers: [_riveController],
+                                fit: BoxFit.contain,
+                                onInit: _onRiveInit,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                );
-              },
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
     );
   }
