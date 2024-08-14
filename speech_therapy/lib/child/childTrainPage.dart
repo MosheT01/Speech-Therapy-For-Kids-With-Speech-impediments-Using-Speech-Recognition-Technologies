@@ -1,7 +1,7 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+
 import 'childHomePage.dart';
 import 'childExercise.dart';
 
