@@ -80,7 +80,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     _micAnimationController =
         AnimationController(vsync: this, duration: const Duration(seconds: 1));
     _micAnimation =
-        Tween<double>(begin: 1.0, end: 1.5).animate(_micAnimationController)
+        Tween<double>(begin: 1, end: 1.25).animate(_micAnimationController)
           ..addStatusListener((status) {
             if (status == AnimationStatus.completed) {
               _micAnimationController.reverse();
@@ -303,26 +303,13 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     String g2pRecognized = recognizedTextLower;
 
     if (_useIPA) {
-      String combinedText = '$videoTitleLower,$recognizedTextLower';
-      String combinedIPA;
-      try {
-        combinedIPA = await G2PAPI().getIPA(combinedText);
-      } catch (e) {
-        combinedIPA = '';
-      }
+      // G2P conversion
+      g2pExpected = await G2PAPI().getIPA(videoTitleLower);
+      g2pRecognized = await G2PAPI().getIPA(recognizedTextLower);
 
-      List<String> ipaList = combinedIPA.split(',');
-
-      g2pExpected = ipaList.isNotEmpty &&
-              !ipaList[0].isEmpty &&
-              !ipaList[0].toLowerCase().contains('nan')
-          ? ipaList[0]
-          : videoTitleLower;
-      g2pRecognized = ipaList.length > 1 &&
-              !ipaList[1].isEmpty &&
-              !ipaList[1].toLowerCase().contains('nan')
-          ? ipaList[1]
-          : recognizedTextLower;
+      // Use the original text if G2P conversion fails
+      if (g2pExpected.isEmpty) g2pExpected = videoTitleLower;
+      if (g2pRecognized.isEmpty) g2pRecognized = recognizedTextLower;
     }
 
     print('Expected: $g2pExpected');
@@ -332,7 +319,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     int grade = (similarity * 100).toInt();
 
     _updateDatabase(true, grade);
-    //_showCelebrationAnimation();
+
+    // Play corresponding sound based on similarity threshold
+    if (aboveSimilarityThreshhold) {
+      await _playFeedbackSound('win.wav');
+    } else {
+      await _playFeedbackSound('lose.wav');
+    }
+
     // Use Gemini and Text-to-Speech APIs
     try {
       String encouragement = await GeminiAPI().getEncouragement(
@@ -342,6 +336,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       print("error in gemini api $e");
       String errorMessage = "Try again, I didn't catch that.";
       await _playAudio(errorMessage, success: false);
+    }
+  }
+
+  Future<void> _playFeedbackSound(String soundFilePath) async {
+    try {
+      await _audioPlayer.play(AssetSource(soundFilePath));
+    } catch (e) {
+      _showErrorDialog('Error playing sound: $e');
     }
   }
 
@@ -477,56 +479,44 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
           ),
         ],
       ),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.5,
-                        height: MediaQuery.of(context).size.height * 0.5,
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: Chewie(controller: _chewieController),
-                        ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Video player expands to fill available space
+                    Expanded(
+                      child: AspectRatio(
+                        aspectRatio: _controller.value.aspectRatio,
+                        child: Chewie(controller: _chewieController!),
                       ),
-                      Column(
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 10),
                           const Text(
                             'What Did You Hear?',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                fontSize: 24, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 10),
-                          Positioned(
-                            bottom: 100,
-                            right: 10,
-                            child: SizedBox(
-                              height: 200,
-                              width: 200,
-                              child: RiveAnimation.asset(
-                                'assets/wave,_hear_and_talk.riv',
-                                controllers: [_riveController],
-                                fit: BoxFit.contain,
-                                onInit: _onRiveInit,
-                              ),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(height: 10),
                           if (_recognizedText.isEmpty)
-                            Text(
+                            const Text(
                               'Please speak into the microphone to start the exercise',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.bold),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           if (_recognizedText.isNotEmpty)
                             Padding(
@@ -540,29 +530,53 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: _isPlaying ? null : _toggleListening,
-                            child: ScaleTransition(
-                              scale: _micAnimation,
-                              child: Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _isPlaying
-                                      ? Colors.grey
-                                      : _isListening
-                                          ? Colors.redAccent
-                                          : Colors.blue,
-                                ),
-                                child: Icon(
-                                  _isListening ? Icons.mic : Icons.mic_none,
-                                  color: Colors.white,
-                                  size: 40,
+                          // This row should adapt and space evenly
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: GestureDetector(
+                                  onTap: _isPlaying ? null : _toggleListening,
+                                  child: ScaleTransition(
+                                    scale: _micAnimation,
+                                    child: Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _isPlaying
+                                            ? Colors.grey
+                                            : _isListening
+                                                ? Colors.redAccent
+                                                : Colors.blue,
+                                      ),
+                                      child: Icon(
+                                        _isListening
+                                            ? Icons.mic
+                                            : Icons.mic_none,
+                                        color: Colors.white,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(
+                                  width:
+                                      20), // Add space between the mic and animation
+                              Flexible(
+                                child: SizedBox(
+                                  height: 100, // Adjust the size dynamically
+                                  width: 100,
+                                  child: RiveAnimation.asset(
+                                    'assets/wave,_hear_and_talk.riv',
+                                    controllers: [_riveController],
+                                    fit: BoxFit.contain,
+                                    onInit: _onRiveInit,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 10),
                           if (_recognizedText.isNotEmpty)
@@ -583,21 +597,12 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                             ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-          if (_showCelebration)
-            const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check, color: Colors.green, size: 200),
-                  Text('Congratulations!', style: TextStyle(fontSize: 24)),
-                ],
-              ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
             ),
-        ],
-      ),
     );
   }
 }

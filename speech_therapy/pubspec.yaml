@@ -91,3 +91,5 @@ flutter:
     - assets/
     - assets/therapist_treating_kid.png
     - assets/celebration.json
+    - assets/win.wav
+    - assets/lose.wav
