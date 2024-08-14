@@ -376,7 +376,7 @@ class _GameScreenState extends State<GameScreen> {
                           child: Text(
                             icons[index],
                             style: const TextStyle(
-                              fontSize: 32.0,
+                              fontSize: 45,
                             ),
                           ),
                         ),
