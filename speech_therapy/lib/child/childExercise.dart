@@ -15,6 +15,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+//TODO  if the child fails more than four time we nav out(remeber to udatae database on last attempt)
 
 class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
@@ -481,6 +482,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Future<void> _updateOverallGradeAndSessionMetrics(String videoId) async {
+    //should be called after last attempt
     try {
       // Calculate total attempts until success
       int totalAttemptsUntilSuccess = _attempts.length;
