@@ -93,3 +93,4 @@ flutter:
     - assets/celebration.json
     - assets/win.wav
     - assets/lose.wav
+    - assets/woo-hoo.mp3
