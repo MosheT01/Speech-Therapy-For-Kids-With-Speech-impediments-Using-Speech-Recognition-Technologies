@@ -124,29 +124,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             });
           }
 
-          // Calculate total attempts, successful attempts, and average time spent from sessions
-          if (videoData.containsKey('sessions')) {
-            Map<dynamic, dynamic> sessions = videoData['sessions'];
-
-            int totalAttempts = 0;
-            int successfulAttempts = 0;
-            int totalTimeSpent = 0;
-
-            sessions.forEach((sessionKey, sessionData) {
-              totalAttempts += (sessionData['totalAttempts'] ?? 0) as int;
-              successfulAttempts +=
-                  (sessionData['successfulAttempts'] ?? 0) as int;
-              totalTimeSpent += (sessionData['timeSpentInSession'] ?? 0) as int;
-            });
-
-            videoData['totalAttempts'] = totalAttempts;
-            videoData['successfulAttempts'] = successfulAttempts;
-            videoData['averageTimeSpent'] = totalTimeSpent > 0
-                ? totalTimeSpent ~/ sessions.length
-                : 0; // Calculate the average time spent across sessions
-          }
-
+          // Add the video data to the list
           videos.add(videoData);
+        });
+
+        // Sort videos by the numeric timestamp extracted from the key
+        videos.sort((a, b) {
+          int aTimestamp = int.parse(a['key'].split('_').last);
+          int bTimestamp = int.parse(b['key'].split('_').last);
+          return aTimestamp.compareTo(bTimestamp);
         });
 
         return videos;
@@ -567,20 +553,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                               Map<String, dynamic>? video =
                                   videoExercises[index];
 
-                              // Handle null values and default cases
-                              final String word = video['word'] ?? 'N/A';
+                              // Extract the relevant data from the video map
+                              final String word =
+                                  video['word']?.trim() ?? 'N/A';
                               final int difficulty = video['difficulty'] ?? 0;
-                              final int grade = video['grade'] ?? 0;
                               final int overallGrade =
                                   video['overallGrade'] ?? 0;
-                              final int totalAttempts =
-                                  video['totalAttempts'] ?? 0;
-                              final int averageTimeSpentInSeconds =
-                                  video['averageTimeSpent'] ?? 0;
-
-                              final Duration averageTimeSpent =
-                                  Duration(seconds: averageTimeSpentInSeconds);
-
+                              final int averageSessionTime =
+                                  video['averageSessionTime'] ?? 0;
                               final String status = video['status'] ?? 'N/A';
 
                               return ListTile(
@@ -589,16 +569,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Video Exercise ${index + 1}'),
+                                    Text('Difficulty: $difficulty'),
+                                    Text('Overall Grade: $overallGrade'),
                                     Text(
-                                        'Difficulty: ${difficulty != 0 ? difficulty.toString() : 'N/A'}'),
-                                    Text(
-                                        'Grade: ${grade != 0 ? grade.toString() : 'N/A'}'),
-                                    Text(
-                                        'Overall Grade: ${overallGrade != 0 ? overallGrade.toString() : 'N/A'}'),
-                                    Text(
-                                        'Total Attempts: ${totalAttempts != 0 ? totalAttempts.toString() : 'N/A'}'),
-                                    Text(
-                                      'Average Time Spent: ${averageTimeSpent.inMinutes}m ${averageTimeSpent.inSeconds.remainder(60)}s',
+                                      'Average Session Time: ${Duration(seconds: averageSessionTime).inMinutes}m ${Duration(seconds: averageSessionTime).inSeconds.remainder(60)}s',
                                     ),
                                     Text('Status: $status'),
                                   ],
