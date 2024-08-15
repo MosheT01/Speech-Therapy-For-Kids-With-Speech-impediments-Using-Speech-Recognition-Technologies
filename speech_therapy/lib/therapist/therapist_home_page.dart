@@ -83,32 +83,32 @@ class TherapistHomePage extends StatelessWidget {
               },
               child: const Text('Manage Patients'),
             ),
-            const SizedBox(height: 10.0),
-            ElevatedButton(
-              onPressed: () {
-                // Navigate to the screen for scheduling appointments
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => ScheduleAppointmentScreen(
-                            userId: userId,
-                          )),
-                );
-              },
-              child: const Text('Schedule Appointment'),
-            ),
-            // Add more buttons and functionality as needed
-            const SizedBox(height: 10.0), // Added space between buttons
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SpeechRecPrototype()),
-                );
-              },
-              child: const Text('Speech Rec Prototype'),
-            ),
+            // const SizedBox(height: 10.0),
+            // ElevatedButton(
+            //   onPressed: () {
+            //     // Navigate to the screen for scheduling appointments
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //           builder: (context) => ScheduleAppointmentScreen(
+            //                 userId: userId,
+            //               )),
+            //     );
+            //   },
+            //   child: const Text('Schedule Appointment'),
+            // ),
+            // // Add more buttons and functionality as needed
+            // const SizedBox(height: 10.0), // Added space between buttons
+            // ElevatedButton(
+            //   onPressed: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //           builder: (context) => const SpeechRecPrototype()),
+            //     );
+            //   },
+            //   child: const Text('Speech Rec Prototype'),
+            // ),
           ],
         ),
       ),
