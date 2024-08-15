@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:speech_therapy/child/Games/GeminiChat.dart';
 import 'package:speech_therapy/child/Games/MemoryGame.dart';
 import 'package:speech_therapy/main.dart';
 import 'childTrainPage.dart';
@@ -94,7 +95,7 @@ class ChildHomePage extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Let\'s Train!'),
+              child: const Text('Let\'s Train!👩‍🏫'),
             ),
             const SizedBox(height: 10.0),
             ElevatedButton(
@@ -107,12 +108,20 @@ class ChildHomePage extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Let\'s Play Games!'),
+              child: const Text('Let\'s Play Games!🎮'),
             ),
             const SizedBox(height: 10.0), // Added space between buttons
             ElevatedButton(
-              onPressed: () {},
-              child: const Text('View Progress'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => GeminiChatPage(
+                        userId: "user123", therapistID: "therapist123"),
+                  ),
+                );
+              },
+              child: const Text('Lets Chat!🗣️🗨️'),
             ),
           ],
         ),
