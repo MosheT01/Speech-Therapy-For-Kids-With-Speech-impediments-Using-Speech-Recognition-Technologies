@@ -122,7 +122,8 @@ class _GameScreenState extends State<GameScreen> {
         throw Exception("No exercises found");
       }
     } catch (e) {
-      _showErrorDialog('Error fetching videos: $e');
+      _showErrorDialog(
+          'fetching videos: $e/n/Your Therapist Hasnt Uploaded Any Videos Yet');
     }
   }
 
@@ -167,17 +168,32 @@ class _GameScreenState extends State<GameScreen> {
         });
       } else {
         await Future.delayed(const Duration(milliseconds: 300));
-        final randomExercise = _getRandomExercise();
-        final therapistId =
-            await fetchTherapistIdFromChildId(widget.userId) as String;
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                _navigateToVideoPlayback(randomExercise, therapistId),
-          ),
-        ).then((_) {
+        if (_videoList.isNotEmpty) {
+          final randomExercise = _getRandomExercise();
+          final therapistId =
+              await fetchTherapistIdFromChildId(widget.userId) as String;
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  _navigateToVideoPlayback(randomExercise, therapistId),
+            ),
+          ).then((_) {
+            setState(() {
+              cardFlipped[previousIndex] = true;
+              cardFlipped[index] = true;
+              matchCount++;
+              previousIndex = -1;
+              flip = false;
+              if (cardFlipped.every((t) => t)) {
+                _showCompletionDialog();
+              }
+            });
+          });
+        } else {
+          // No videos to navigate to, continue the game
           setState(() {
             cardFlipped[previousIndex] = true;
             cardFlipped[index] = true;
@@ -188,7 +204,7 @@ class _GameScreenState extends State<GameScreen> {
               _showCompletionDialog();
             }
           });
-        });
+        }
       }
     }
   }
@@ -274,7 +290,7 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Error'),
+          title: const Text('No Videos Yet!'),
           content: Text(message),
           actions: [
             TextButton(
