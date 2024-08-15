@@ -122,8 +122,8 @@ class _GameScreenState extends State<GameScreen> {
         throw Exception("No exercises found");
       }
     } catch (e) {
-      _showErrorDialog(
-          'fetching videos: $e/n/Your Therapist Hasnt Uploaded Any Videos Yet');
+      //_showErrorDialog(
+      // 'fetching videos: $e/n/Your Therapist Hasnt Uploaded Any Videos Yet');
     }
   }
 

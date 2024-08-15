@@ -10,13 +10,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:uuid/uuid.dart'; // To generate unique session IDs
 
 class GeminiChatPage extends StatefulWidget {
-  final String userId;
-  final String therapistID;
-
   const GeminiChatPage({
     Key? key,
-    required this.userId,
-    required this.therapistID,
   }) : super(key: key);
 
   @override
