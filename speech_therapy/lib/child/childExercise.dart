@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:lottie/lottie.dart';
 import 'package:rive/rive.dart';
@@ -93,11 +94,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   late Map<String, dynamic> patientData;
   final stt.SpeechToText _speech =
       SpeechService().speech; // Access the singleton
+
   // Use the current timestamp as the session ID
   String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
   DateTime startTime = DateTime.now();
 
   List<Attempt> _attempts = [];
+
+  late List<String> encouragementMessages;
 
   @override
   void initState() {
@@ -149,12 +153,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   void _triggerRiveState(String state) {
-    // Ensure that the state machine responds immediately
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true;
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true;
-    _resetRiveInputs();
+    _resetRiveInputs(); // Reset all inputs before setting a new one
+
+    // Set the appropriate input to trigger the state change
     switch (state) {
       case 'Talk':
         _talkInput?.value = true;
@@ -169,10 +170,11 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         _failInput?.value = true;
         break;
       default:
+        // No need to deactivate/reactivate the controller unnecessarily
         _riveController.isActive = true; // Default to 'idle'
     }
 
-    // Ensure that the state machine responds immediately
+    // Immediately trigger the state by forcing an update
     _riveController.isActive = false; // Deactivate to reset the state machine
     _riveController.isActive = true; // Reactivate to start the new state
   }
@@ -324,6 +326,28 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     } catch (e) {
       debugPrint('Error fetching patient data: $e');
     }
+    encouragementMessages = [
+      "Great work, ${patientData['firstName']}!",
+      "Well done, ${patientData['firstName']}!",
+      "You nailed it, ${patientData['firstName']}!",
+      "Awesome job, ${patientData['firstName']}!",
+      "Fantastic, ${patientData['firstName']}!",
+      "You're amazing, ${patientData['firstName']}!",
+      "Keep it up, ${patientData['firstName']}!",
+      "You're a star, ${patientData['firstName']}!",
+      "Brilliant, ${patientData['firstName']}!",
+      "Superb effort, ${patientData['firstName']}!",
+      "You did it, ${patientData['firstName']}!",
+      "Excellent, ${patientData['firstName']}!",
+      "You're unstoppable, ${patientData['firstName']}!",
+      "Impressive, ${patientData['firstName']}!",
+      "Outstanding, ${patientData['firstName']}!",
+      "You're doing great, ${patientData['firstName']}!",
+      "Way to go, ${patientData['firstName']}!",
+      "You're a champ, ${patientData['firstName']}!",
+      "You rock, ${patientData['firstName']}!",
+      "Great job, ${patientData['firstName']}!"
+    ];
   }
 
   Future<void> _evaluateSpeech(String recognizedText) async {
@@ -371,22 +395,29 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     }
 
     // Use Gemini and Text-to-Speech APIs
-    try {
-      String encouragement = await GeminiAPI().getEncouragement(
-          "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success(exercise passed we go to the next level):'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
-      await _playAudio(
-        encouragement,
-      );
-      print('Encouragement: $encouragement');
-    } catch (e) {
-      print("error in gemini api $e");
-      String errorMessage = "Try again, I didn't catch that.";
-      await _playAudio(errorMessage);
+    if (!aboveSimilarityThreshhold) {
+      try {
+        String encouragement = await GeminiAPI().getEncouragement(
+            "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success(exercise passed we go to the next level):'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
+        await _playAudio(
+          encouragement,
+        );
+        print('Encouragement: $encouragement');
+      } catch (e) {
+        print("error in gemini api $e");
+        String errorMessage = "Try again, I didn't catch that.";
+        await _playAudio(errorMessage);
+      }
+      setState(() {
+        _isPlaying = false;
+      });
     }
-    setState(() {
-      _isPlaying = false;
-    });
     if (aboveSimilarityThreshhold) {
+      // Choose a random string from encouragementMessages array
+      String randomEncouragement =
+          encouragementMessages[Random().nextInt(encouragementMessages.length)];
+      await Future.delayed(Duration(seconds: 1));
+      await _playAudio(randomEncouragement);
       await _updateOverallGradeAndSessionMetrics(widget.videoKey);
       Navigator.pop(context);
     }
@@ -400,7 +431,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     // Play the celebration sound
     await _audioPlayer.play(AssetSource('woo-hoo.mp3'));
 
-    await Future.delayed(Duration(seconds: 2));
+    await Future.delayed(Duration(seconds: 1));
     setState(() {
       _showCelebration = false;
     });
