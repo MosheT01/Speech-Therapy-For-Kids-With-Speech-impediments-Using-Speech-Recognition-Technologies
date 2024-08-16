@@ -11,8 +11,8 @@ import 'package:uuid/uuid.dart'; // To generate unique session IDs
 
 class GeminiChatPage extends StatefulWidget {
   const GeminiChatPage({
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   _GeminiChatPageState createState() => _GeminiChatPageState();
@@ -208,7 +208,7 @@ class _GeminiChatPageState extends State<GeminiChatPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat With Gemini'),
+        title: const Text('Chat With Gemini'),
       ),
       body: Stack(
         children: [
@@ -221,44 +221,49 @@ class _GeminiChatPageState extends State<GeminiChatPage>
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      height: 500, // Adjust the size dynamically
-                      width: 300,
-                      child: RiveAnimation.asset(
-                        'assets/wave,_hear_and_talk.riv',
-                        controllers: [_riveController],
-                        fit: BoxFit.contain,
-                        onInit: _onRiveInit,
+                    Flexible(
+                      flex: 5, // Adjust flex as needed
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: RiveAnimation.asset(
+                          'assets/wave,_hear_and_talk.riv',
+                          controllers: [_riveController],
+                          fit: BoxFit.contain,
+                          onInit: _onRiveInit,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (_recognizedText.isEmpty)
-                      const Text(
-                        'Chat With Gemini',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    Flexible(
+                      flex: 1,
+                      child: _recognizedText.isEmpty
+                          ? const Text(
+                              'Chat With Gemini',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                _recognizedText,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                    ),
                     const SizedBox(height: 10),
-                    if (_recognizedText.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          _recognizedText,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: GestureDetector(
+                    Flexible(
+                      flex: 1,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
                             onTap: _toggleListening,
                             child: ScaleTransition(
                               scale: _micAnimation,
@@ -281,11 +286,9 @@ class _GeminiChatPageState extends State<GeminiChatPage>
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(
-                            width:
-                                20), // Add space between the mic and animation
-                      ],
+                          const SizedBox(width: 20),
+                        ],
+                      ),
                     ),
                   ],
                 ),

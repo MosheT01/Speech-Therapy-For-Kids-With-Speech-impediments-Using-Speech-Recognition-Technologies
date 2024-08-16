@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'patient_management_screen.dart'; // Import the patient management screen
-import 'schedule_appointment_screen.dart'; // Import the schedule appointment screen
-import 'speechRecPrototype.dart';
+// Import the schedule appointment screen
 import '../main.dart';
 
 class TherapistHomePage extends StatelessWidget {

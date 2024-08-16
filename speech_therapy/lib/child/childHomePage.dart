@@ -147,7 +147,7 @@ class _ChildHomePageState extends State<ChildHomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => GeminiChatPage(),
+                    builder: (context) => const GeminiChatPage(),
                   ),
                 );
               },

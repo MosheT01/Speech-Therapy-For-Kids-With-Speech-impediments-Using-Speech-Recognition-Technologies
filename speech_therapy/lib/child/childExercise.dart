@@ -107,7 +107,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
   DateTime startTime = DateTime.now();
 
-  List<Attempt> _attempts = [];
+  final List<Attempt> _attempts = [];
 
   late List<String> encouragementMessages;
 
@@ -308,7 +308,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         partialResults: true,
         cancelOnError: false,
       ),
-      pauseFor: kIsWeb ? Duration(seconds: 2) : null,
+      pauseFor: kIsWeb ? const Duration(seconds: 2) : null,
       onResult: (val) {
         setState(() {
           _recognizedText = val.recognizedWords;
@@ -420,7 +420,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       // Choose a random string from encouragementMessages array
       String randomEncouragement =
           encouragementMessages[Random().nextInt(encouragementMessages.length)];
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
       await _playAudio(randomEncouragement);
       await _updateOverallGradeAndSessionMetrics(widget.videoKey, "success");
       Navigator.pop(context);
@@ -458,7 +458,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     // Play the celebration sound
     await _audioPlayer.play(AssetSource('woo-hoo.mp3'));
 
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
     setState(() {
       _showCelebration = false;
     });
@@ -467,7 +467,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   Future<void> _playFeedbackSound(String soundFilePath,
       {required bool success}) async {
     try {
-      await Future.delayed(Duration(milliseconds: 1500));
+      await Future.delayed(const Duration(milliseconds: 1500));
       setState(() {
         _triggerRiveState(
             success ? 'success' : 'fail'); // Trigger success or fail state
@@ -726,7 +726,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                     Expanded(
                       child: AspectRatio(
                         aspectRatio: _controller.value.aspectRatio,
-                        child: Chewie(controller: _chewieController!),
+                        child: Chewie(controller: _chewieController),
                       ),
                     ),
                     const SizedBox(height: 10),

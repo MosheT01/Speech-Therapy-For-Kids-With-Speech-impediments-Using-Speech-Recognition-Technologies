@@ -445,7 +445,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                       controller: chewieController!,
                     ),
                   ),
-                  bottomNavigationBar: ButtonBar(
+                  bottomNavigationBar: OverflowBar(
                     alignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       TextButton(
