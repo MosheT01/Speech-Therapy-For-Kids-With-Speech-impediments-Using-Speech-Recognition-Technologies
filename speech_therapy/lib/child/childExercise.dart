@@ -310,7 +310,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         partialResults: true,
         cancelOnError: false,
       ),
-      pauseFor: kIsWeb ? const Duration(seconds: 2) : null,
+      pauseFor: kIsWeb ? const Duration(seconds: 3) : null,
       //    listenFor: kIsWeb ? const Duration(seconds: 15) : null,
       onResult: (val) {
         setState(() {

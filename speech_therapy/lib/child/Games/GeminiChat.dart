@@ -119,7 +119,7 @@ class _GeminiChatPageState extends State<GeminiChatPage>
     _triggerRiveState('Hear');
     _micAnimationController.forward();
     _speech.listen(
-      pauseFor: kIsWeb ? const Duration(seconds: 2) : null,
+      pauseFor: kIsWeb ? const Duration(seconds: 3) : null,
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
