@@ -559,15 +559,19 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       // Calculate the session duration (time spent on the video playback page)
       int sessionTimeSpent = _totalTimeSpent.inSeconds;
 
+      // Calculate successful and total attempts for the session
+      int sessionSuccessfulAttempts =
+          _attempts.where((attempt) => attempt.success).length;
+      int sessionTotalAttempts = _attempts.length;
+
       // Update session metrics in Firebase
       DatabaseReference sessionRef = FirebaseDatabase.instance.ref(
           'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions/$sessionId');
 
       final sessionMetrics = {
         'attempts': _attempts.map((attempt) => attempt.toJson()).toList(),
-        'successfulAttempts':
-            _attempts.where((attempt) => attempt.success).length,
-        'totalAttempts': _attempts.length,
+        'successfulAttempts': sessionSuccessfulAttempts,
+        'totalAttempts': sessionTotalAttempts,
         'timeSpentInSession': sessionTimeSpent,
         'status': status,
         'sessionAverageGrade': sessionAverageGrade,
@@ -575,14 +579,17 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
       await sessionRef.set(sessionMetrics);
 
-      // Update the overall video stats (including overall grade and average session time)
+      // Update the overall video stats (including overall grade, total and successful attempts, and average session time)
       int overallGrade = await _calculateAndUpdateOverallGrade(videoId);
       int overallSessionTime = await _calculateAverageSessionTime(videoId);
+      int totalSuccessfulAttempts =
+          await _calculateTotalSuccessfulAttempts(videoId);
+      int totalAttempts = await _calculateTotalAttempts(videoId);
 
       // Determine the overall video status
-      String overallStatus = overallGrade >= (50) ? 'success' : 'failed';
+      String overallStatus = overallGrade >= 50 ? 'success' : 'failed';
 
-      // Update the overall video status and grade in Firebase
+      // Update the overall video status, grade, and attempts in Firebase
       DatabaseReference videoRef = FirebaseDatabase.instance.ref(
           'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId');
 
@@ -590,6 +597,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         'status': overallStatus,
         'overallGrade': overallGrade,
         'averageSessionTime': overallSessionTime,
+        'totalSuccessfulAttempts': totalSuccessfulAttempts,
+        'totalAttempts': totalAttempts,
       });
     } catch (e) {
       print('Error updating session metrics: $e');
@@ -602,6 +611,59 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         textColor: Colors.white,
         fontSize: 16.0,
       );
+    }
+  }
+
+  Future<int> _calculateTotalSuccessfulAttempts(String videoId) async {
+    try {
+      int totalSuccessfulAttempts = 0;
+
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        for (var sessionData in sessions.values) {
+          int sessionSuccessfulAttempts =
+              sessionData['successfulAttempts'] ?? 0;
+          totalSuccessfulAttempts += sessionSuccessfulAttempts;
+        }
+      }
+
+      return totalSuccessfulAttempts;
+    } catch (e) {
+      print('Error calculating total successful attempts: $e');
+      return 0;
+    }
+  }
+
+  Future<int> _calculateTotalAttempts(String videoId) async {
+    try {
+      int totalAttempts = 0;
+
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        for (var sessionData in sessions.values) {
+          int sessionTotalAttempts = sessionData['totalAttempts'] ?? 0;
+          totalAttempts += sessionTotalAttempts;
+        }
+      }
+
+      return totalAttempts;
+    } catch (e) {
+      print('Error calculating total attempts: $e');
+      return 0;
     }
   }
 
