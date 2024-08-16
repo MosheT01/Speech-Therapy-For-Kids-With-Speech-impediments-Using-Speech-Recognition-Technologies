@@ -1,100 +1,111 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'AddPatientScreen.dart';
 import 'package:firebase_database/firebase_database.dart';
+
+import 'AddPatientScreen.dart';
 import 'PatientDashboardScreen.dart';
 
 class PatientManagementScreen extends StatefulWidget {
   final String userId;
+
   const PatientManagementScreen({super.key, required this.userId});
 
   @override
-  // ignore: library_private_types_in_public_api
   _PatientManagementScreenState createState() =>
       _PatientManagementScreenState();
 }
 
 class _PatientManagementScreenState extends State<PatientManagementScreen> {
-  List<Map<String, dynamic>> patients = [];
-  List<Map<String, dynamic>> filteredPatients = [];
-  bool isLoading = true;
-  TextEditingController searchController = TextEditingController();
-  late DatabaseReference patientsRef;
+  late DatabaseReference _patientsRef;
+  late StreamSubscription<DatabaseEvent> _patientsSubscription;
+  List<Map<String, dynamic>> _patients = [];
+  List<Map<String, dynamic>> _filteredPatients = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    print("Initializing PatientManagementScreen...");
-    patientsRef = FirebaseDatabase.instance
+    _patientsRef = FirebaseDatabase.instance
         .ref("users")
         .child(widget.userId)
         .child("patients");
-    fetchPatients();
-    setupRealtimeUpdates();
+
+    _initData();
   }
 
-  void setupRealtimeUpdates() {
-    patientsRef.onChildChanged.listen((event) {
-      print("Real-time update detected.");
-      fetchPatients();
+  @override
+  void dispose() {
+    _patientsSubscription.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _initData() {
+    // Listen to changes in the database and update the state accordingly
+    _patientsSubscription = _patientsRef.onValue.listen(
+      (event) {
+        final data = event.snapshot.value as Map<dynamic, dynamic>?;
+        if (data != null) {
+          _updatePatientList(data);
+        } else {
+          setState(() {
+            _patients = [];
+            _filteredPatients = [];
+            _isLoading = false;
+          });
+        }
+      },
+      onError: (error) {
+        debugPrint("Error fetching patients: $error");
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+      },
+    );
+  }
+
+  void _updatePatientList(Map<dynamic, dynamic> data) {
+    final List<Map<String, dynamic>> patients = data.entries.map((entry) {
+      return Map<String, dynamic>.from(entry.value)
+        ..putIfAbsent('key', () => entry.key);
+    }).toList();
+
+    setState(() {
+      _patients = patients;
+      _filteredPatients = patients;
+      _isLoading = false;
+      _hasError = false;
     });
   }
 
-  Future<void> fetchPatients() async {
-    print("Fetching patients...");
+  void _filterPatients(String query) {
+    final filtered = _patients.where((patient) {
+      final fullName =
+          '${patient['firstName']} ${patient['lastName']}'.toLowerCase();
+      return fullName.contains(query.toLowerCase());
+    }).toList();
+
     setState(() {
-      isLoading = true;
-    });
-
-    try {
-      final dataSnapshot = await patientsRef.once();
-      final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
-
-      if (values != null) {
-        patients = values.entries.map((entry) {
-          Map<String, dynamic> patientWithKey = Map.from(entry.value);
-          patientWithKey['key'] = entry.key;
-          return patientWithKey;
-        }).toList();
-        filteredPatients = List.from(patients);
-        print("Patients data fetched successfully.");
-      } else {
-        patients = [];
-        filteredPatients = [];
-        print("No patients found.");
-      }
-    } catch (e) {
-      print("Error fetching patients: $e");
-      displayError(
-          'An error occurred while fetching the patient list from the database. Please try again later.');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-      print("Fetching patients completed.");
-    }
-  }
-
-  void filterPatients(String query) {
-    setState(() {
-      filteredPatients = patients
-          .where((patient) =>
-              patient['firstName']
-                  .toLowerCase()
-                  .contains(query.toLowerCase()) ||
-              patient['lastName'].toLowerCase().contains(query.toLowerCase()))
-          .toList();
+      _filteredPatients = filtered;
     });
   }
 
   Future<void> _navigateToAddPatientScreen() async {
-    await Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddPatientScreen(userId: widget.userId),
       ),
     );
-    print("Returned from AddPatientScreen.");
-    fetchPatients();
+
+    if (result == true) {
+      // Re-fetch data if a new patient was added
+      _initData();
+    }
   }
 
   Future<void> _navigateToPatientDashboard(String patientKey) async {
@@ -107,91 +118,19 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         ),
       ),
     );
-    print("Returned from PatientDashboardScreen.");
-    fetchPatients();
-  }
-
-  void displayError(String errorToDisplay) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorToDisplay),
-          backgroundColor: Colors.red,
-        ),
-      );
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    print("Building PatientManagementScreen...");
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Patients'),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search patients',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: filterPatients,
-            ),
-          ),
+          _buildSearchBar(),
           Expanded(
-            child: false //isloading
-                // ignore: dead_code
-                ? const Center(child: CircularProgressIndicator())
-                : filteredPatients.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No patients found.',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: filteredPatients.length,
-                        itemBuilder: (context, index) {
-                          final patient = filteredPatients[index];
-                          return GestureDetector(
-                            onTap: () =>
-                                _navigateToPatientDashboard(patient['key']),
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.grey,
-                                    child: Icon(
-                                      patient['gender'] == 'Male'
-                                          ? Icons.man
-                                          : Icons.woman,
-                                      color: patient['gender'] == 'Male'
-                                          ? Colors.blue
-                                          : Colors.pinkAccent,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    '${patient['firstName']} ${patient['lastName']}',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    'Age: ${patient['age']}',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  trailing: const Icon(Icons.arrow_forward_ios),
-                                ),
-                                const Divider(),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+            child: _buildPatientList(),
           ),
         ],
       ),
@@ -199,6 +138,75 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         onPressed: _navigateToAddPatientScreen,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: TextField(
+        controller: _searchController,
+        decoration: const InputDecoration(
+          labelText: 'Search patients',
+          prefixIcon: Icon(Icons.search),
+        ),
+        onChanged: _filterPatients,
+      ),
+    );
+  }
+
+  Widget _buildPatientList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_hasError) {
+      return const Center(child: Text('An error occurred. Please try again.'));
+    }
+
+    if (_filteredPatients.isEmpty) {
+      return const Center(
+        child: Text(
+          'No patients found.',
+          style: TextStyle(fontSize: 18),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _filteredPatients.length,
+      itemBuilder: (context, index) {
+        final patient = _filteredPatients[index];
+        return GestureDetector(
+          onTap: () => _navigateToPatientDashboard(patient['key']),
+          child: Column(
+            children: [
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.grey,
+                  child: Icon(
+                    patient['gender'] == 'Male' ? Icons.man : Icons.woman,
+                    color: patient['gender'] == 'Male'
+                        ? Colors.blue
+                        : Colors.pinkAccent,
+                  ),
+                ),
+                title: Text(
+                  '${patient['firstName']} ${patient['lastName']}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  'Age: ${patient['age']}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios),
+              ),
+              const Divider(),
+            ],
+          ),
+        );
+      },
     );
   }
 }

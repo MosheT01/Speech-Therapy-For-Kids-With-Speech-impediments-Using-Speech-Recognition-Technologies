@@ -1,22 +1,18 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:camera/camera.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:speech_therapy/VideoPreviewScreen.dart';
 import 'Camera.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-//TODO fix stats in list
-//TODO CHILD SAVING TO DATABASE STATS
-//TODO WIPE DATABASE
-//TODO send email to parent
 
 class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
     Config(
       'customCacheKey',
-      stalePeriod: const Duration(days: 30), // Cache duration
-      maxNrOfCacheObjects: 100, // Max number of objects to cache
+      stalePeriod: const Duration(days: 30),
+      maxNrOfCacheObjects: 100,
     ),
   );
 
@@ -29,8 +25,8 @@ class PatientDashboardScreen extends StatefulWidget {
 
   const PatientDashboardScreen({
     super.key,
-    required this.patientKey,
     required this.userId,
+    required this.patientKey,
   });
 
   @override
@@ -38,46 +34,38 @@ class PatientDashboardScreen extends StatefulWidget {
 }
 
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
-  late Future<List<Map<String, dynamic>>> _videoExercisesFuture;
   late Map<String, dynamic> patientData = {};
-
+  List<Map<String, dynamic>> videoExercises = [];
   bool isLoading = false;
-  bool _isUploading = false; // Track video upload status
+  bool _isUploading = false;
 
   @override
   void initState() {
     super.initState();
-    fetchPatientData(); // Fetch patient data immediately on init
-    _videoExercisesFuture = fetchVideoExercises(); // Store the future
-
-    // Set up the listener for real-time updates
-    DatabaseReference ref = FirebaseDatabase.instance
-        .ref("users")
-        .child(widget.userId)
-        .child("patients")
-        .child(widget.patientKey)
-        .child("videos");
-
-    ref.onValue.listen((event) {
-      setState(() {
-        _videoExercisesFuture =
-            fetchVideoExercises(); // Reload future on update
-      });
-    });
+    fetchInitialData();
+    setupRealtimeUpdates();
   }
 
-  // Fetch patient data from the database
-  Future<void> fetchPatientData() async {
+  Future<void> fetchInitialData() async {
     setState(() {
       isLoading = true;
     });
-    DatabaseReference ref = FirebaseDatabase.instance
-        .ref("users")
-        .child(widget.userId)
-        .child("patients")
-        .child(widget.patientKey);
 
+    await Future.wait([
+      fetchPatientData(),
+      fetchVideoExercises(),
+    ]);
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> fetchPatientData() async {
     try {
+      DatabaseReference ref = FirebaseDatabase.instance
+          .ref("users/${widget.userId}/patients/${widget.patientKey}");
+
       final dataSnapshot = await ref.once();
       final value = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
 
@@ -85,293 +73,154 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         setState(() {
           patientData = Map<String, dynamic>.from(value);
         });
+        debugPrint('Patient data fetched successfully: $patientData');
       } else {
-        patientData = {}; // Clear data if not found
+        debugPrint('No patient data found.');
       }
     } catch (e) {
       debugPrint('Error fetching patient data: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchVideoExercises() async {
-    DatabaseReference ref = FirebaseDatabase.instance
-        .ref("users")
-        .child(widget.userId)
-        .child("patients")
-        .child(widget.patientKey)
-        .child("videos");
-
+  Future<void> fetchVideoExercises() async {
     try {
+      DatabaseReference ref = FirebaseDatabase.instance
+          .ref("users/${widget.userId}/patients/${widget.patientKey}/videos");
+
       final dataSnapshot = await ref.once();
       final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
 
       if (values != null) {
         List<Map<String, dynamic>> videos = [];
-        values.forEach((key, value) {
-          Map<String, dynamic> videoData = Map.from(value);
-          videoData['key'] = key; // Add the video key to the video data
+        for (var entry in values.entries) {
+          Map<String, dynamic> videoData = Map.from(entry.value);
+          videoData['key'] = entry.key;
 
           // Cache the video URL
           String? downloadURL = videoData['downloadURL'];
           if (downloadURL != null) {
-            CustomCacheManager.instance
-                .downloadFile(downloadURL)
-                .catchError((e) {
-              debugPrint('Error caching video URL: $e');
-            });
+            await CustomCacheManager.instance.downloadFile(downloadURL);
           }
 
-          // Add the video data to the list
+          if (videoData.containsKey('sessions')) {
+            Map<dynamic, dynamic> sessions = videoData['sessions'];
+            int totalAttempts = 0;
+            int successfulAttempts = 0;
+            int totalTimeSpent = 0;
+
+            for (var sessionData in sessions.values) {
+              totalAttempts += (sessionData['totalAttempts'] ?? 0) as int;
+              successfulAttempts +=
+                  (sessionData['successfulAttempts'] ?? 0) as int;
+              totalTimeSpent += (sessionData['timeSpentInSession'] ?? 0) as int;
+            }
+
+            videoData['totalAttempts'] = totalAttempts;
+            videoData['successfulAttempts'] = successfulAttempts;
+            videoData['averageTimeSpent'] =
+                totalTimeSpent > 0 ? totalTimeSpent ~/ sessions.length : 0;
+          }
+
           videos.add(videoData);
-        });
+        }
 
-        // Sort videos by the numeric timestamp extracted from the key
-        videos.sort((a, b) {
-          int aTimestamp = int.parse(a['key'].split('_').last);
-          int bTimestamp = int.parse(b['key'].split('_').last);
-          return aTimestamp.compareTo(bTimestamp);
+        setState(() {
+          videoExercises = videos;
         });
-
-        return videos;
+        debugPrint('Video exercises fetched successfully.');
+      } else {
+        debugPrint('No video exercises found.');
       }
     } catch (e) {
       debugPrint('Error fetching video exercises: $e');
     }
-    return [];
+  }
+
+  void setupRealtimeUpdates() {
+    DatabaseReference ref = FirebaseDatabase.instance
+        .ref("users/${widget.userId}/patients/${widget.patientKey}/videos");
+
+    ref.onChildChanged.listen((event) {
+      debugPrint('Real-time database update detected, fetching data...');
+      fetchVideoExercises();
+      fetchPatientData();
+    });
   }
 
   void _showEditDialog(BuildContext context) {
-    String firstName = patientData['firstName'] ?? 'N/A';
-    String lastName = patientData['lastName'] ?? 'N/A';
-    int age = patientData['age'] ?? 0;
-    String gender = patientData['gender'] ?? 'N/A';
-
-    final firstNameController = TextEditingController(text: firstName);
-    final lastNameController = TextEditingController(text: lastName);
-    final ageController = TextEditingController(text: age.toString());
-
+    final firstNameController =
+        TextEditingController(text: patientData['firstName'] ?? '');
+    final lastNameController =
+        TextEditingController(text: patientData['lastName'] ?? '');
+    final ageController =
+        TextEditingController(text: patientData['age']?.toString() ?? '');
     final formKey = GlobalKey<FormState>();
+    String gender = patientData['gender'] ?? 'Male';
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Edit Patient Details'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: firstNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'First Name',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a valid first name';
-                          }
-                          if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
-                            return 'Please enter a valid first name';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          setState(() {
-                            firstName = value;
-                          });
-                        },
-                      ),
-                      TextFormField(
-                        controller: lastNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Last Name',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a valid last name';
-                          }
-                          if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
-                            return 'Please enter a valid last name';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          setState(() {
-                            lastName = value;
-                          });
-                        },
-                      ),
-                      TextFormField(
-                        controller: ageController,
-                        decoration: const InputDecoration(
-                          labelText: 'Age',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a valid age';
-                          }
-                          int? age = int.tryParse(value);
-                          if (age == null || age < 1 || age > 150) {
-                            return 'Please enter a valid age';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          setState(() {
-                            age = int.tryParse(value) ?? 0;
-                          });
-                        },
-                      ),
-                      DropdownButtonFormField<String>(
-                        value: gender,
-                        decoration: const InputDecoration(
-                          labelText: 'Gender',
-                        ),
-                        items: ['Male', 'Female']
-                            .map<DropdownMenuItem<String>>((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            gender = newValue!;
-                          });
-                        },
-                      )
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      // Update the patient details in the database
-                      final DatabaseReference ref = FirebaseDatabase.instance
-                          .ref()
-                          .child('users')
-                          .child(widget.userId)
-                          .child('patients')
-                          .child(widget.patientKey);
-
-                      ref.update({
-                        'firstName': firstName,
-                        'lastName': lastName,
-                        'age': age,
-                        'gender': gender,
-                      }).then((_) {
-                        debugPrint('Patient details updated successfully');
-                        setState(() {
-                          // Update local state
-                          patientData['firstName'] = firstName;
-                          patientData['lastName'] = lastName;
-                          patientData['age'] = age;
-                          patientData['gender'] = gender;
-                        });
-                        // Dismiss the dialog
-                        Navigator.of(context).pop();
-                        fetchPatientData();
-                      }).catchError((error) {
-                        debugPrint('Error updating patient details: $error');
-                      });
-                    }
-                  },
-                  child: const Text('Save'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    // Dismiss the dialog without updating
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Cancel'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showDeleteWarningDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
-          title: const Text('Delete Patient'),
-          content: const Text(
-              'Are you sure you want to delete this patient? This action cannot be undone.'),
-          actions: [
-            Row(
+          title: const Text('Edit Patient Details'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Align(
-                  alignment: Alignment.bottomLeft,
-                  child: TextButton(
-                    onPressed: () async {
-                      if (_isUploading) {
-                        Fluttertoast.showToast(
-                          msg:
-                              'Cannot delete patient while video is uploading.',
-                          toastLength: Toast.LENGTH_SHORT,
-                          gravity: ToastGravity.BOTTOM,
-                          backgroundColor: Colors.red,
-                          textColor: Colors.white,
-                        );
-                        return;
-                      }
-
-                      // Confirm deletion
-                      Navigator.of(context).pop();
-                      // Show deleting toast
-                      Fluttertoast.showToast(
-                        msg: 'Deleting patient...',
-                        toastLength: Toast.LENGTH_LONG,
-                        timeInSecForIosWeb: 6,
-                        gravity: ToastGravity.BOTTOM,
-                      );
-                      //show loading
-                      setState(() {
-                        isLoading = true;
-                      });
-                      await _deletePatient();
-                      //hide loading
-                      setState(() {
-                        isLoading = false;
-                      });
-                    },
-                    child: const Text(
-                      'Delete',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
+                _buildTextField(
+                  controller: firstNameController,
+                  label: 'First Name',
+                  validator: _validateName,
                 ),
-                const Spacer(),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: TextButton(
-                    onPressed: () {
-                      // Cancel deletion
-                      Navigator.of(context).pop();
-                    },
-                    autofocus: true,
-                    //make button green fill
-                    style: TextButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Cancel'),
+                _buildTextField(
+                  controller: lastNameController,
+                  label: 'Last Name',
+                  validator: _validateName,
+                ),
+                _buildTextField(
+                  controller: ageController,
+                  label: 'Age',
+                  keyboardType: TextInputType.number,
+                  validator: _validateAge,
+                ),
+                DropdownButtonFormField<String>(
+                  value: gender,
+                  items: ['Male', 'Female'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      gender = newValue!;
+                    });
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Gender',
                   ),
                 ),
               ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  _savePatientDetails(
+                    firstName: firstNameController.text,
+                    lastName: lastNameController.text,
+                    age: int.parse(ageController.text),
+                    gender: gender,
+                  );
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
             ),
           ],
         );
@@ -379,88 +228,177 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  // Function to delete all patient videos
-  Future<void> deleteAllPatientVideos(String userId, String patientKey) async {
+  void _savePatientDetails({
+    required String firstName,
+    required String lastName,
+    required int age,
+    required String gender,
+  }) async {
     try {
-      // Create a reference to the patient's folder in Firebase Storage
-      var ref = firebase_storage.FirebaseStorage.instance
-          .ref()
-          .child('/$userId/$patientKey/');
+      final DatabaseReference ref = FirebaseDatabase.instance
+          .ref("users/${widget.userId}/patients/${widget.patientKey}");
 
-      // List all files in the patient's folder
-      var listResult = await ref.listAll();
+      await ref.update({
+        'firstName': firstName,
+        'lastName': lastName,
+        'age': age,
+        'gender': gender,
+      });
 
-      // Delete each file in the folder
-      for (var item in listResult.items) {
-        await item.delete();
-      }
-      //delete the folder
-      await ref.delete();
+      setState(() {
+        patientData['firstName'] = firstName;
+        patientData['lastName'] = lastName;
+        patientData['age'] = age;
+        patientData['gender'] = gender;
+      });
 
-      print('All patient videos deleted successfully');
+      debugPrint('Patient details updated successfully.');
     } catch (e) {
-      print('Error deleting patient videos: $e');
+      debugPrint('Error updating patient details: $e');
     }
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a valid name';
+    }
+    if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
+      return 'Please enter a valid name';
+    }
+    return null;
+  }
+
+  String? _validateAge(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a valid age';
+    }
+    int? age = int.tryParse(value);
+    if (age == null || age < 1 || age > 150) {
+      return 'Please enter a valid age';
+    }
+    return null;
+  }
+
+  void _showDeleteWarningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Patient'),
+          content: const Text(
+              'Are you sure you want to delete this patient? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                if (_isUploading) {
+                  Fluttertoast.showToast(
+                    msg: 'Cannot delete patient while video is uploading.',
+                    toastLength: Toast.LENGTH_SHORT,
+                    gravity: ToastGravity.BOTTOM,
+                    backgroundColor: Colors.red,
+                    textColor: Colors.white,
+                  );
+                  return;
+                }
+
+                await _deletePatient();
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _deletePatient() async {
     try {
-      // Delete all patient videos
       await deleteAllPatientVideos(widget.userId, widget.patientKey);
 
-      // Delete patient from therapist's patients list
       DatabaseReference therapistRef = FirebaseDatabase.instance
-          .ref("users")
-          .child(widget.userId)
-          .child("patients")
-          .child(widget.patientKey);
+          .ref("users/${widget.userId}/patients/${widget.patientKey}");
+
       await therapistRef.remove();
 
-      // Set hasTherapist as false
       DatabaseReference patientHasTherapistRef = FirebaseDatabase.instance
-          .ref("users")
-          .child(widget.patientKey)
-          .child("hasTherapist");
+          .ref("users/${widget.patientKey}/hasTherapist");
       await patientHasTherapistRef.set(false);
 
-      // Delete therapistId from patient
       DatabaseReference patientTherapistIdRef = FirebaseDatabase.instance
-          .ref("users")
-          .child(widget.patientKey)
-          .child("therapistId");
+          .ref("users/${widget.patientKey}/therapistId");
+
       await patientTherapistIdRef.remove();
 
       debugPrint(
-          'Patient removed from care and their videos deleted successfully');
+          'Patient removed from care and their videos deleted successfully.');
       Navigator.of(context).pop();
     } catch (e) {
       debugPrint('Error deleting patient: $e');
     }
   }
 
-  void _navigateToVideoPreviewScreen({String? videoUrl}) async {
-    if (videoUrl != null) {
-      try {
-        // Try to get the cached file
-        final file = await CustomCacheManager.instance.getSingleFile(videoUrl);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VideoPreviewScreen(
-              videoUrl: videoUrl,
-              filePath: file.path,
-            ),
-          ),
-        );
-      } catch (e) {
-        debugPrint('Error navigating to video preview screen: $e');
+  Future<void> deleteAllPatientVideos(String userId, String patientKey) async {
+    try {
+      var ref = firebase_storage.FirebaseStorage.instance
+          .ref()
+          .child('/$userId/$patientKey/');
+
+      var listResult = await ref.listAll();
+
+      for (var item in listResult.items) {
+        await item.delete();
+        debugPrint('Deleted video: ${item.name}');
       }
-    } else {
-      debugPrint('Download URL is null for video');
+
+      await ref.delete();
+      debugPrint('All patient videos deleted successfully.');
+    } catch (e) {
+      debugPrint('Error deleting patient videos: $e');
     }
   }
 
-  @override
+  void _navigateToVideoPreviewScreen({required String videoUrl}) async {
+    try {
+      final file = await CustomCacheManager.instance.getSingleFile(videoUrl);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoPreviewScreen(
+            videoUrl: videoUrl,
+            filePath: file.path,
+          ),
+        ),
+      );
+      debugPrint('Navigated to VideoPreviewScreen with URL: $videoUrl');
+    } catch (e) {
+      debugPrint('Error navigating to video preview screen: $e');
+    }
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+      ),
+      keyboardType: keyboardType,
+      validator: validator,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -472,175 +410,151 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               child: CircularProgressIndicator(),
             )
           : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Patient Details:',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    if (patientData.isNotEmpty)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () {
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Patient Details:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  if (patientData.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _buildPatientDetails(),
+                  ],
+                  const Divider(color: Colors.black, thickness: 1),
+                  const Text(
+                    'Patient Video Exercises:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildVideoExercises(),
+                  ElevatedButton(
+                    onPressed: () async {
+                      debugPrint('Navigating to Camera screen...');
+                      await availableCameras().then(
+                        (cameras) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CameraExampleHome(
+                                camera: cameras,
+                                userId: widget.userId,
+                                patientKey: widget.patientKey,
+                                onUploadStart: () {
                                   setState(() {
-                                    _showEditDialog(context);
+                                    _isUploading = true;
                                   });
                                 },
-                                child: const Text('Edit Patient Details'),
-                              ),
-                              const SizedBox(width: 10),
-                              ElevatedButton(
-                                onPressed: () {
-                                  _showDeleteWarningDialog(context);
+                                onUploadComplete: () {
+                                  setState(() {
+                                    _isUploading = false;
+                                    fetchVideoExercises();
+                                  });
                                 },
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                ),
-                                child: const Text('Delete Patient'),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Name: ${patientData['firstName'] ?? 'N/A'} ${patientData['lastName'] ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          Text(
-                            'Age: ${patientData['age']?.toString() ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          Text(
-                            'Gender: ${patientData['gender'] ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    const Divider(
-                      color: Colors.black,
-                      thickness: 1,
-                    ),
-                    const Text(
-                      'Patient Video Exercises:',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    FutureBuilder<List<Map<String, dynamic>>>(
-                      future: _videoExercisesFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        } else if (snapshot.hasError) {
-                          return Text('Error: ${snapshot.error}');
-                        } else if (!snapshot.hasData ||
-                            snapshot.data!.isEmpty) {
-                          return const Text('No videos found for this patient');
-                        } else {
-                          List<Map<String, dynamic>> videoExercises =
-                              snapshot.data!;
-                          return ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: videoExercises.length,
-                            itemBuilder: (context, index) {
-                              Map<String, dynamic> video =
-                                  videoExercises[index];
-
-                              // Extract the relevant data from the video map
-                              final String word =
-                                  video['word']?.trim() ?? 'N/A';
-                              final int difficulty = video['difficulty'] ?? 0;
-                              final int overallGrade =
-                                  video['overallGrade'] ?? 0;
-                              final int averageSessionTime =
-                                  video['averageSessionTime'] ?? 0;
-                              final String status = video['status'] ?? 'N/A';
-
-                              return ListTile(
-                                title: Text(word),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Video Exercise ${index + 1}'),
-                                    Text('Difficulty: $difficulty'),
-                                    Text('Overall Grade: $overallGrade'),
-                                    Text(
-                                      'Average Session Time: ${Duration(seconds: averageSessionTime).inMinutes}m ${Duration(seconds: averageSessionTime).inSeconds.remainder(60)}s',
-                                    ),
-                                    Text('Status: $status'),
-                                    Text(
-                                        'Total Attempts: ${video['totalAttempts'] ?? 0}'),
-                                    Text(
-                                        'Total Successful Attempts: ${video['totalSuccessfulAttempts'] ?? 0}'),
-                                  ],
-                                ),
-                                leading: const Icon(Icons.video_library),
-                                onTap: () {
-                                  String? downloadURL = video['downloadURL'];
-                                  if (downloadURL != null) {
-                                    _navigateToVideoPreviewScreen(
-                                        videoUrl: downloadURL);
-                                  } else {
-                                    debugPrint(
-                                        'Download URL is null for video at index $index');
-                                  }
-                                },
-                              );
-                            },
+                            ),
                           );
-                        }
-                      },
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        await availableCameras().then(
-                          (value) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CameraExampleHome(
-                                  camera: value,
-                                  userId: widget.userId,
-                                  patientKey: widget.patientKey,
-                                  onUploadStart: () {
-                                    setState(() {
-                                      _isUploading = true;
-                                    });
-                                  },
-                                  onUploadComplete: () {
-                                    setState(() {
-                                      _isUploading = false;
-                                      _videoExercisesFuture =
-                                          fetchVideoExercises();
-                                    });
-                                  },
-                                ),
-                              ),
-                            ).then((_) {
-                              setState(() {
-                                _videoExercisesFuture = fetchVideoExercises();
-                              });
-                            });
-                          },
-                        );
-                      },
-                      child: const Text('Add Video Exercise'),
-                    ),
-                  ],
-                ),
+                        },
+                      );
+                    },
+                    child: const Text('Add Video Exercise'),
+                  ),
+                ],
               ),
             ),
+    );
+  }
+
+  Widget _buildPatientDetails() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: () => _showEditDialog(context),
+              child: const Text('Edit Patient Details'),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () => _showDeleteWarningDialog(context),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Delete Patient'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Name: ${patientData['firstName']} ${patientData['lastName']}',
+          style: const TextStyle(fontSize: 16),
+        ),
+        Text(
+          'Age: ${patientData['age']?.toString()}',
+          style: const TextStyle(fontSize: 16),
+        ),
+        Text(
+          'Gender: ${patientData['gender']}',
+          style: const TextStyle(fontSize: 16),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildVideoExercises() {
+    if (videoExercises.isEmpty) {
+      return const Text('No videos found for this patient.');
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: videoExercises.length,
+      itemBuilder: (context, index) {
+        Map<String, dynamic> video = videoExercises[index];
+
+        final String word = video['word'] ?? 'N/A';
+        final int difficulty = video['difficulty'] ?? 0;
+        final int grade = video['grade'] ?? 0;
+        final int overallGrade = video['overallGrade'] ?? 0;
+        final int totalAttempts = video['totalAttempts'] ?? 0;
+        final int averageTimeSpentInSeconds = video['averageTimeSpent'] ?? 0;
+        final Duration averageTimeSpent =
+            Duration(seconds: averageTimeSpentInSeconds);
+        final String status = video['status'] ?? 'N/A';
+
+        return ListTile(
+          title: Text(word),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Video Exercise ${index + 1}'),
+              Text(
+                  'Difficulty: ${difficulty != 0 ? difficulty.toString() : 'N/A'}'),
+              Text('Grade: ${grade != 0 ? grade.toString() : 'N/A'}'),
+              Text(
+                  'Overall Grade: ${overallGrade != 0 ? overallGrade.toString() : 'N/A'}'),
+              Text(
+                  'Total Attempts: ${totalAttempts != 0 ? totalAttempts.toString() : 'N/A'}'),
+              Text(
+                  'Average Time Spent: ${averageTimeSpent.inMinutes}m ${averageTimeSpent.inSeconds.remainder(60)}s'),
+              Text('Status: $status'),
+            ],
+          ),
+          leading: const Icon(Icons.video_library),
+          onTap: () {
+            String? downloadURL = video['downloadURL'];
+            if (downloadURL != null) {
+              _navigateToVideoPreviewScreen(videoUrl: downloadURL);
+            } else {
+              debugPrint('Download URL is null for video at index $index');
+            }
+          },
+        );
+      },
     );
   }
 }
