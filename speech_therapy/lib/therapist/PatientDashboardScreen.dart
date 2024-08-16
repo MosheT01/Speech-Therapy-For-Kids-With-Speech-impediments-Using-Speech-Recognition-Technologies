@@ -183,6 +183,67 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
+  void _showEditPlanNameDialog(BuildContext context, String planKey) {
+    final planNameController = TextEditingController(
+        text: _trainingPlans[planKey]['name'] ?? 'Unnamed Plan');
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Plan Name'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: planNameController,
+              decoration: const InputDecoration(
+                labelText: 'Plan Name',
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a plan name';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  _editPlanName(planKey, planNameController.text);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _editPlanName(String planKey, String newName) {
+    _trainingPlansRef.child(planKey).update({'name': newName}).then((_) {
+      debugPrint('Plan name updated successfully');
+    }).catchError((error) {
+      debugPrint('Error updating plan name: $error');
+    });
+  }
+
+  void _deletePlan(String planKey) {
+    _trainingPlansRef.child(planKey).remove().then((_) {
+      debugPrint('Training plan deleted successfully');
+    }).catchError((error) {
+      debugPrint('Error deleting training plan: $error');
+    });
+  }
+
   void _showEditDialog(BuildContext context, String videoKey, String planKey) {
     String word = _trainingPlans[planKey]['videos'][videoKey]['word'] ?? '';
     int difficulty =
@@ -422,6 +483,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             onChanged: (value) => _togglePlanActivation(planKey, value),
           ),
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                ElevatedButton(
+                  onPressed: () => _showEditPlanNameDialog(context, planKey),
+                  child: const Text('Edit Plan Name'),
+                ),
+                ElevatedButton(
+                  onPressed: () => _deletePlan(planKey),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                  ),
+                  child: const Text('Delete Plan'),
+                ),
+              ],
+            ),
             ElevatedButton(
               onPressed: () => _navigateToCameraScreen(planKey),
               child: const Text('Add New Video to Plan'),
