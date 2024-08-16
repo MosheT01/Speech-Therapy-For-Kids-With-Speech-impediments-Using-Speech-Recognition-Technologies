@@ -20,5 +20,6 @@ jobs:
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
           firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPEECHTHERAPYAPP_88A94 }}"
+          entryPoint: speech_therapy
           expires: 30d
           projectId: speechtherapyapp-88a94
