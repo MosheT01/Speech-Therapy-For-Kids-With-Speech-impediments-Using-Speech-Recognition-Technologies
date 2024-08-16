@@ -135,7 +135,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       print("Status: $status");
       if ((status.contains('done') || status.contains('notListening')) &&
           _recognizedText.isEmpty) {
-        return;
+        _stopListening();
+        //play lose sound
+        _playFeedbackSound('lose.wav', success: false);
       }
       if ((status.contains('done') ||
           (status.contains('notListening')) && _recognizedText.isEmpty)) {
@@ -309,6 +311,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         cancelOnError: false,
       ),
       pauseFor: kIsWeb ? const Duration(seconds: 2) : null,
+      //    listenFor: kIsWeb ? const Duration(seconds: 15) : null,
       onResult: (val) {
         setState(() {
           _recognizedText = val.recognizedWords;
@@ -391,8 +394,13 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     String g2pRecognized = recognizedTextLower;
 
     if (_useIPA && !recognizedTextLower.contains(videoTitleLower)) {
-      g2pExpected = await G2PAPI().getIPA(videoTitleLower);
-      g2pRecognized = await G2PAPI().getIPA(recognizedTextLower);
+      try {
+        g2pExpected = await G2PAPI().getIPA(videoTitleLower);
+        g2pRecognized = await G2PAPI().getIPA(recognizedTextLower);
+      } catch (e) {
+        g2pExpected = videoTitleLower;
+        g2pRecognized = recognizedTextLower;
+      }
 
       if (g2pExpected.isEmpty) g2pExpected = videoTitleLower;
       if (g2pRecognized.isEmpty) g2pRecognized = recognizedTextLower;

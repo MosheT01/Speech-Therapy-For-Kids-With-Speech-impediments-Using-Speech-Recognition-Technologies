@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
 import 'package:speech_therapy/googleCloudAPIs/gemini_chat_api.dart';
@@ -11,8 +12,8 @@ import 'package:uuid/uuid.dart'; // To generate unique session IDs
 
 class GeminiChatPage extends StatefulWidget {
   const GeminiChatPage({
-    super.key,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   _GeminiChatPageState createState() => _GeminiChatPageState();
@@ -118,9 +119,11 @@ class _GeminiChatPageState extends State<GeminiChatPage>
     _triggerRiveState('Hear');
     _micAnimationController.forward();
     _speech.listen(
+      pauseFor: kIsWeb ? const Duration(seconds: 2) : null,
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
-        cancelOnError: false,
+        cancelOnError: true,
+        listenMode: stt.ListenMode.dictation,
       ),
       onResult: (val) {
         setState(() {
@@ -210,66 +213,66 @@ class _GeminiChatPageState extends State<GeminiChatPage>
       appBar: AppBar(
         title: const Text('Chat With Gemini'),
       ),
-      body: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double availableWidth = constraints.maxWidth;
+          final double availableHeight = constraints.maxHeight;
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: availableHeight,
+              ),
+              child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Flexible(
-                      flex: 5, // Adjust flex as needed
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: RiveAnimation.asset(
-                          'assets/wave,_hear_and_talk.riv',
-                          controllers: [_riveController],
-                          fit: BoxFit.contain,
-                          onInit: _onRiveInit,
-                        ),
+                    SizedBox(
+                      height: availableHeight * 0.6, // 60% of available height
+                      width: availableWidth * 0.8, // 80% of available width
+                      child: RiveAnimation.asset(
+                        'assets/wave,_hear_and_talk.riv',
+                        controllers: [_riveController],
+                        fit: BoxFit.contain,
+                        onInit: _onRiveInit,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Flexible(
-                      flex: 1,
-                      child: _recognizedText.isEmpty
-                          ? const Text(
-                              'Chat With Gemini',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                _recognizedText,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                    ),
+                    if (_recognizedText.isEmpty)
+                      const Text(
+                        'Chat With Gemini',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     const SizedBox(height: 10),
-                    Flexible(
-                      flex: 1,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
+                    if (_recognizedText.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          _recognizedText,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: GestureDetector(
                             onTap: _toggleListening,
                             child: ScaleTransition(
                               scale: _micAnimation,
                               child: Container(
-                                width: 80,
-                                height: 80,
+                                width: 100, // Adjust width dynamically
+                                height: 100, // Adjust height dynamically
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: _isPlaying
@@ -281,22 +284,21 @@ class _GeminiChatPageState extends State<GeminiChatPage>
                                 child: Icon(
                                   _isListening ? Icons.mic : Icons.mic_none,
                                   color: Colors.white,
-                                  size: 40,
+                                  size: 50, // Adjust icon size dynamically
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 20),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ],
+            ),
+          );
+        },
       ),
     );
   }
