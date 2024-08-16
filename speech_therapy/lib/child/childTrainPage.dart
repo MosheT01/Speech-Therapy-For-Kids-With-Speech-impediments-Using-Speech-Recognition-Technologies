@@ -49,39 +49,64 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
       throw Exception("Therapist ID not found");
     }
 
-    DatabaseReference ref = FirebaseDatabase.instance
+    DatabaseReference trainingPlansRef = FirebaseDatabase.instance
         .ref("users")
         .child(therapistId)
         .child("patients")
         .child(widget.userId)
-        .child("videos");
+        .child("trainingPlans");
 
     try {
-      final dataSnapshot = await ref.once();
+      final dataSnapshot = await trainingPlansRef.once();
       final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
 
       if (values != null) {
-        List<Map<String, dynamic>> videoList = [];
-        values.forEach((key, value) {
-          Map<String, dynamic> videoData =
-              Map<String, dynamic>.from(value as Map);
-          videoData['key'] = key; // Add the video key to the video data
+        String? activePlanKey;
+        Map<dynamic, dynamic>? activePlanData;
 
-          // Cache the video URL
-          String? downloadURL = videoData['downloadURL'];
-          if (downloadURL != null) {
-            CustomCacheManager.instance
-                .downloadFile(downloadURL)
-                .catchError((e) {
-              debugPrint('Error caching video URL: $e');
+        // Find the active plan
+        values.forEach((key, value) {
+          final planData = value as Map<dynamic, dynamic>;
+          if (planData['active'] == true) {
+            activePlanKey = key;
+            activePlanData = planData;
+          }
+        });
+
+        if (activePlanKey != null && activePlanData != null) {
+          List<Map<String, dynamic>> videoList = [];
+          final videosData =
+              activePlanData!['videos'] as Map<dynamic, dynamic>?;
+
+          if (videosData != null) {
+            videosData.forEach((key, value) {
+              Map<String, dynamic> videoData =
+                  Map<String, dynamic>.from(value as Map<dynamic, dynamic>);
+              videoData['key'] = key; // Add the video key to the video data
+
+              // Cache the video URL
+              String? downloadURL = videoData['downloadURL'];
+              if (downloadURL != null) {
+                CustomCacheManager.instance
+                    .downloadFile(downloadURL)
+                    .catchError((e) {
+                  debugPrint('Error caching video URL: $e');
+                });
+              }
+
+              videoList.add(videoData);
             });
           }
 
-          videoList.add(videoData);
-        });
-        setState(() {
-          videos = videoList;
-        });
+          setState(() {
+            videos = videoList;
+          });
+        } else {
+          // No active plan found
+          setState(() {
+            videos = [];
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error fetching video exercises: $e');
