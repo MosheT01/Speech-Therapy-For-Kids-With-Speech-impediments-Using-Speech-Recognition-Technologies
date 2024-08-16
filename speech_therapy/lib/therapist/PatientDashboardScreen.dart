@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:camera/camera.dart';
@@ -98,6 +99,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           setState(() {
             _trainingPlans = _parseMap(data);
           });
+
+          // Cache videos in the background after UI rendering
+          if (!kIsWeb) {
+            Future.microtask(() => _cacheAllVideos());
+          }
         } else {
           setState(() {
             _hasError = true;
@@ -110,6 +116,20 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         });
       },
     );
+  }
+
+  void _cacheAllVideos() {
+    _trainingPlans.forEach((planKey, planData) {
+      final videos = planData['videos'] as Map<String, dynamic>? ?? {};
+      videos.forEach((videoKey, videoData) {
+        final String? downloadURL = videoData['downloadURL'];
+        if (downloadURL != null) {
+          CustomCacheManager.instance.downloadFile(downloadURL).catchError((e) {
+            debugPrint('Error caching video URL: $e');
+          });
+        }
+      });
+    });
   }
 
   Map<String, dynamic> _parseMap(Map<dynamic, dynamic> input) {
@@ -136,6 +156,39 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       }
     }).catchError((error) {
       debugPrint('Error updating plan activation: $error');
+    });
+  }
+
+  void _deletePlan(String planKey) {
+    final DatabaseReference planRef = _trainingPlansRef.child(planKey);
+
+    planRef.child('videos').once().then((DatabaseEvent snapshot) async {
+      final videosData = snapshot.snapshot.value as Map?;
+      if (videosData != null) {
+        for (var videoData in videosData.entries) {
+          final String? downloadURL = videoData.value['downloadURL'];
+          if (downloadURL != null) {
+            await firebase_storage.FirebaseStorage.instance
+                .refFromURL(downloadURL)
+                .delete()
+                .catchError((error) {
+              debugPrint('Error deleting video file from storage: $error');
+            });
+          }
+        }
+      }
+
+      // Now delete the plan from the database
+      planRef.remove().then((_) {
+        debugPrint('Plan deleted successfully');
+      }).catchError((error) {
+        debugPrint('Error deleting plan: $error');
+      });
+    }).catchError((error) {
+      debugPrint('Error retrieving plan data: $error');
+    });
+    setState(() {
+      _trainingPlans.remove(planKey);
     });
   }
 
@@ -236,14 +289,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     });
   }
 
-  void _deletePlan(String planKey) {
-    _trainingPlansRef.child(planKey).remove().then((_) {
-      debugPrint('Training plan deleted successfully');
-    }).catchError((error) {
-      debugPrint('Error deleting training plan: $error');
-    });
-  }
-
   void _showEditDialog(BuildContext context, String videoKey, String planKey) {
     String word = _trainingPlans[planKey]['videos'][videoKey]['word'] ?? '';
     int difficulty =
@@ -255,65 +300,70 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Edit Video Details'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: wordController,
-                  decoration: const InputDecoration(labelText: 'Word'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a word';
-                    }
-                    return null;
-                  },
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit Video Details'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: wordController,
+                      decoration: const InputDecoration(labelText: 'Word'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a word';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Difficulty:'),
+                    Slider(
+                      value: difficulty.toDouble(),
+                      min: 1.0,
+                      max: 10.0,
+                      divisions: 9,
+                      label: difficulty.toString(),
+                      onChanged: (value) {
+                        setState(() {
+                          difficulty = value.toInt();
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                const Text('Difficulty:'),
-                Slider(
-                  value: difficulty.toDouble(),
-                  min: 1.0,
-                  max: 10.0,
-                  divisions: 9,
-                  label: difficulty.toString(),
-                  onChanged: (value) {
-                    setState(() {
-                      difficulty = value.toInt();
-                    });
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      final DatabaseReference videoRef = _trainingPlansRef
+                          .child(planKey)
+                          .child("videos")
+                          .child(videoKey);
+
+                      videoRef.update({
+                        'word': wordController.text,
+                        'difficulty': difficulty,
+                      }).then((_) {
+                        Navigator.of(context).pop();
+                      }).catchError((error) {
+                        debugPrint('Error updating video details: $error');
+                      });
+                    }
                   },
+                  child: const Text('Save'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  final DatabaseReference videoRef = _trainingPlansRef
-                      .child(planKey)
-                      .child("videos")
-                      .child(videoKey);
-
-                  videoRef.update({
-                    'word': wordController.text,
-                    'difficulty': difficulty,
-                  }).then((_) {
-                    Navigator.of(context).pop();
-                  }).catchError((error) {
-                    debugPrint('Error updating video details: $error');
-                  });
-                }
-              },
-              child: const Text('Save'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -323,10 +373,28 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final DatabaseReference videoRef =
         _trainingPlansRef.child(planKey).child("videos").child(videoKey);
 
-    videoRef.remove().then((_) {
-      debugPrint('Video deleted successfully');
+    videoRef.once().then((DatabaseEvent snapshot) async {
+      final videoData = snapshot.snapshot.value as Map?;
+      if (videoData != null) {
+        final String? downloadURL = videoData['downloadURL'];
+        if (downloadURL != null) {
+          await firebase_storage.FirebaseStorage.instance
+              .refFromURL(downloadURL)
+              .delete()
+              .catchError((error) {
+            debugPrint('Error deleting video file from storage: $error');
+          });
+        }
+
+        // Now delete the video entry from the database
+        videoRef.remove().then((_) {
+          debugPrint('Video entry deleted from database');
+        }).catchError((error) {
+          debugPrint('Error deleting video entry from database: $error');
+        });
+      }
     }).catchError((error) {
-      debugPrint('Error deleting video: $error');
+      debugPrint('Error retrieving video data: $error');
     });
   }
 
