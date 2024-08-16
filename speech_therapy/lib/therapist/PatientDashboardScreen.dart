@@ -36,13 +36,12 @@ class PatientDashboardScreen extends StatefulWidget {
 
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   late DatabaseReference _patientRef;
-  late DatabaseReference _videosRef;
+  late DatabaseReference _trainingPlansRef;
   late StreamSubscription<DatabaseEvent> _patientSubscription;
-  late StreamSubscription<DatabaseEvent> _videosSubscription;
+  late StreamSubscription<DatabaseEvent> _trainingPlansSubscription;
 
   Map<String, dynamic> _patientData = {};
-  List<Map<String, dynamic>> _videoExercises = [];
-
+  Map<String, dynamic> _trainingPlans = {};
   bool _isLoading = true;
   bool _hasError = false;
   bool _isUploading = false;
@@ -55,7 +54,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         .child(widget.userId)
         .child("patients")
         .child(widget.patientKey);
-    _videosRef = _patientRef.child("videos");
+    _trainingPlansRef = _patientRef.child("trainingPlans");
 
     _initData();
   }
@@ -63,17 +62,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   @override
   void dispose() {
     _patientSubscription.cancel();
-    _videosSubscription.cancel();
+    _trainingPlansSubscription.cancel();
     super.dispose();
   }
 
   void _initData() {
     _patientSubscription = _patientRef.onValue.listen(
       (event) {
-        final data = event.snapshot.value as Map<dynamic, dynamic>?;
-        if (data != null) {
+        final data = event.snapshot.value;
+        if (data != null && data is Map) {
           setState(() {
-            _patientData = Map<String, dynamic>.from(data);
+            _patientData = _parseMap(data);
             _isLoading = false;
             _hasError = false;
           });
@@ -92,27 +91,16 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       },
     );
 
-    _videosSubscription = _videosRef.onValue.listen(
+    _trainingPlansSubscription = _trainingPlansRef.onValue.listen(
       (event) {
-        final data = event.snapshot.value as Map<dynamic, dynamic>?;
-        if (data != null) {
+        final data = event.snapshot.value;
+        if (data != null && data is Map) {
           setState(() {
-            _videoExercises = data.entries.map((entry) {
-              final videoData = Map<String, dynamic>.from(entry.value);
-              videoData['key'] = entry.key;
-
-              // Cache the video URL
-              String? downloadURL = videoData['downloadURL'];
-              if (downloadURL != null) {
-                CustomCacheManager.instance
-                    .downloadFile(downloadURL)
-                    .catchError((e) {
-                  debugPrint('Error caching video URL: $e');
-                });
-              }
-
-              return videoData;
-            }).toList();
+            _trainingPlans = _parseMap(data);
+          });
+        } else {
+          setState(() {
+            _hasError = true;
           });
         }
       },
@@ -124,89 +112,115 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  void _showEditDialog(BuildContext context) {
-    String firstName = _patientData['firstName'] ?? 'N/A';
-    String lastName = _patientData['lastName'] ?? 'N/A';
-    int age = _patientData['age'] ?? 0;
-    String gender = _patientData['gender'] ?? 'N/A';
+  Map<String, dynamic> _parseMap(Map<dynamic, dynamic> input) {
+    final Map<String, dynamic> parsedMap = {};
+    input.forEach((key, value) {
+      if (key is String && value is Map) {
+        parsedMap[key] = _parseMap(value);
+      } else if (key is String) {
+        parsedMap[key] = value;
+      }
+    });
+    return parsedMap;
+  }
 
-    final firstNameController = TextEditingController(text: firstName);
-    final lastNameController = TextEditingController(text: lastName);
-    final ageController = TextEditingController(text: age.toString());
+  void _togglePlanActivation(String planKey, bool isActive) {
+    _trainingPlansRef.child(planKey).update({'active': isActive}).then((_) {
+      if (isActive) {
+        // Deactivate all other plans
+        _trainingPlans.forEach((key, _) {
+          if (key != planKey) {
+            _trainingPlansRef.child(key).update({'active': false});
+          }
+        });
+      }
+    }).catchError((error) {
+      debugPrint('Error updating plan activation: $error');
+    });
+  }
 
+  void _showAddPlanDialog(BuildContext context) {
+    final planNameController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Edit Patient Details'),
+          title: const Text('Enter Plan Name'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: planNameController,
+              decoration: const InputDecoration(
+                labelText: 'Plan Name',
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a plan name';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  _addNewTrainingPlan(planNameController.text);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Add Plan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEditDialog(BuildContext context, String videoKey, String planKey) {
+    String word = _trainingPlans[planKey]['videos'][videoKey]['word'] ?? '';
+    int difficulty =
+        _trainingPlans[planKey]['videos'][videoKey]['difficulty'] ?? 5;
+
+    final wordController = TextEditingController(text: word);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Video Details'),
           content: Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
-                  controller: firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'First Name',
-                  ),
+                  controller: wordController,
+                  decoration: const InputDecoration(labelText: 'Word'),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a valid first name';
-                    }
-                    if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
-                      return 'Please enter a valid first name';
+                      return 'Please enter a word';
                     }
                     return null;
                   },
                 ),
-                TextFormField(
-                  controller: lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Last Name',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a valid last name';
-                    }
-                    if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
-                      return 'Please enter a valid last name';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: ageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Age',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a valid age';
-                    }
-                    int? age = int.tryParse(value);
-                    if (age == null || age < 1 || age > 150) {
-                      return 'Please enter a valid age';
-                    }
-                    return null;
-                  },
-                ),
-                DropdownButtonFormField<String>(
-                  value: gender,
-                  decoration: const InputDecoration(
-                    labelText: 'Gender',
-                  ),
-                  items: ['Male', 'Female']
-                      .map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
+                const Text('Difficulty:'),
+                Slider(
+                  value: difficulty.toDouble(),
+                  min: 1.0,
+                  max: 10.0,
+                  divisions: 9,
+                  label: difficulty.toString(),
+                  onChanged: (value) {
                     setState(() {
-                      gender = newValue!;
+                      difficulty = value.toInt();
                     });
                   },
                 ),
@@ -217,17 +231,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             TextButton(
               onPressed: () {
                 if (formKey.currentState!.validate()) {
-                  final DatabaseReference ref = _patientRef;
+                  final DatabaseReference videoRef = _trainingPlansRef
+                      .child(planKey)
+                      .child("videos")
+                      .child(videoKey);
 
-                  ref.update({
-                    'firstName': firstNameController.text,
-                    'lastName': lastNameController.text,
-                    'age': int.parse(ageController.text),
-                    'gender': gender,
+                  videoRef.update({
+                    'word': wordController.text,
+                    'difficulty': difficulty,
                   }).then((_) {
                     Navigator.of(context).pop();
                   }).catchError((error) {
-                    debugPrint('Error updating patient details: $error');
+                    debugPrint('Error updating video details: $error');
                   });
                 }
               },
@@ -241,6 +256,309 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         );
       },
     );
+  }
+
+  void _deleteVideo(String planKey, String videoKey) {
+    final DatabaseReference videoRef =
+        _trainingPlansRef.child(planKey).child("videos").child(videoKey);
+
+    videoRef.remove().then((_) {
+      debugPrint('Video deleted successfully');
+    }).catchError((error) {
+      debugPrint('Error deleting video: $error');
+    });
+  }
+
+  void _navigateToVideoPreviewScreen({required String videoUrl}) async {
+    try {
+      final file = await CustomCacheManager.instance.getSingleFile(videoUrl);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoPreviewScreen(
+            videoUrl: videoUrl,
+            filePath: file.path,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error navigating to video preview screen: $e');
+    }
+  }
+
+  void _navigateToCameraScreen(String planKey) async {
+    await availableCameras().then((cameras) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CameraExampleHome(
+            camera: cameras,
+            userId: widget.userId,
+            patientKey: widget.patientKey,
+            planKey: planKey,
+            onUploadStart: () {
+              setState(() {
+                _isUploading = true;
+              });
+            },
+            onUploadComplete: () {
+              setState(() {
+                _isUploading = false;
+              });
+            },
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Patient Dashboard'),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Patient Details:',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    if (_patientData.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  _showEditDialog(context, '',
+                                      ''); // Empty values for patient details edit dialog
+                                },
+                                child: const Text('Edit Patient Details'),
+                              ),
+                              const SizedBox(width: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  _showDeleteWarningDialog(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('Delete Patient'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Name: ${_patientData['firstName'] ?? 'N/A'} ${_patientData['lastName'] ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            'Age: ${_patientData['age']?.toString() ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            'Gender: ${_patientData['gender'] ?? 'N/A'}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    const Divider(
+                      color: Colors.black,
+                      thickness: 1,
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        _showAddPlanDialog(context);
+                      },
+                      child: const Text('Add New Training Plan'),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTrainingPlansList(),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildTrainingPlansList() {
+    if (_trainingPlans.isEmpty) {
+      return const Text('No training plans found for this patient.');
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _trainingPlans.length,
+      itemBuilder: (context, index) {
+        final planKey = _trainingPlans.keys.elementAt(index);
+        final planData = _trainingPlans[planKey];
+        final isActive = planData['active'] ?? false;
+
+        return ExpansionTile(
+          title: Text(
+            planData['name'] ?? 'Unnamed Plan',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0),
+          ),
+          subtitle: Text(
+            isActive ? 'Active' : 'Inactive',
+            style: TextStyle(
+              color: isActive ? Colors.green : Colors.red,
+            ),
+          ),
+          trailing: Switch(
+            value: isActive,
+            onChanged: (value) => _togglePlanActivation(planKey, value),
+          ),
+          children: [
+            ElevatedButton(
+              onPressed: () => _navigateToCameraScreen(planKey),
+              child: const Text('Add New Video to Plan'),
+            ),
+            ..._buildVideoList(planKey, planData['videos'] ?? {}),
+          ],
+        );
+      },
+    );
+  }
+
+  void _addNewTrainingPlan(String planName) {
+    final newPlanRef = _trainingPlansRef.push();
+    newPlanRef.set({'name': planName, 'active': false, 'videos': {}}).then((_) {
+      debugPrint('New training plan added successfully');
+    }).catchError((error) {
+      debugPrint('Error adding new training plan: $error');
+    });
+  }
+
+  List<Widget> _buildVideoList(String planKey, Map<String, dynamic> videos) {
+    if (videos.isEmpty) {
+      return [const ListTile(title: Text('No videos found in this plan.'))];
+    }
+
+    return videos.entries.map((entry) {
+      final videoKey = entry.key;
+      final videoData = entry.value as Map?;
+
+      if (videoData == null) {
+        return const ListTile(title: Text('Invalid video data.'));
+      }
+
+      final String word = videoData['word'] ?? 'N/A';
+      final int difficulty = videoData['difficulty'] ?? 0;
+      final String status = videoData['status'] ?? 'N/A';
+      final int overallGrade = videoData['overallGrade'] ?? 0;
+      final int averageSessionTime = videoData['averageSessionTime'] ?? 0;
+      final int totalAttempts = videoData['totalAttempts'] ?? 0;
+      final int totalSuccessfulAttempts =
+          videoData['totalSuccessfulAttempts'] ?? 0;
+
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 8.0),
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: _getTileColor(overallGrade, totalAttempts),
+          borderRadius: BorderRadius.circular(10.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.5),
+              spreadRadius: 2,
+              blurRadius: 5,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ListTile(
+          title: Text(
+            word,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18.0,
+            ),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Difficulty: $difficulty'),
+                  const Spacer(),
+                  _getStatusIcon(overallGrade, totalAttempts),
+                ],
+              ),
+              Text('Total Attempts: $totalAttempts'),
+              Text('Successful Attempts: $totalSuccessfulAttempts'),
+              Text(
+                'Average Session Time: ${Duration(seconds: averageSessionTime).inMinutes}m ${Duration(seconds: averageSessionTime).inSeconds.remainder(60)}s',
+              ),
+              Text('Overall Grade: $overallGrade%'),
+            ],
+          ),
+          leading: const Icon(Icons.video_library, size: 40.0),
+          onTap: () {
+            String? downloadURL = videoData['downloadURL'];
+            if (downloadURL != null) {
+              _navigateToVideoPreviewScreen(videoUrl: downloadURL);
+            } else {
+              debugPrint('Download URL is null for video with key $videoKey');
+            }
+          },
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  _showEditDialog(context, videoKey, planKey);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () {
+                  _deleteVideo(planKey, videoKey);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Color _getTileColor(int overallGrade, int totalAttempts) {
+    if (totalAttempts == 0) {
+      return Colors.grey.withOpacity(0.3); // Not yet attempted
+    } else if (overallGrade < 50) {
+      return Colors.red.withOpacity(0.3); // Poor performance
+    } else if (overallGrade >= 50 && overallGrade < 65) {
+      return Colors.orange.withOpacity(0.3); // Moderate to good performance
+    } else {
+      return Colors.green.withOpacity(0.3); // Perfect performance
+    }
+  }
+
+  Icon _getStatusIcon(int overallGrade, int totalAttempts) {
+    if (totalAttempts == 0) {
+      return Icon(Icons.access_time, color: Colors.grey); // Clock icon
+    } else if (overallGrade < 50) {
+      return Icon(Icons.cancel, color: Colors.red); // Red cross icon
+    } else if (overallGrade >= 50 && overallGrade < 65) {
+      return Icon(Icons.check_circle,
+          color: Colors.orange); // Orange check icon
+    } else {
+      return Icon(Icons.check_circle, color: Colors.green); // Green check icon
+    }
   }
 
   void _showDeleteWarningDialog(BuildContext context) {
@@ -323,225 +641,5 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     } catch (e) {
       debugPrint('Error deleting patient videos: $e');
     }
-  }
-
-  void _navigateToVideoPreviewScreen({required String videoUrl}) async {
-    try {
-      final file = await CustomCacheManager.instance.getSingleFile(videoUrl);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoPreviewScreen(
-            videoUrl: videoUrl,
-            filePath: file.path,
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error navigating to video preview screen: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Patient Dashboard'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Patient Details:',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    if (_patientData.isNotEmpty)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  _showEditDialog(context);
-                                },
-                                child: const Text('Edit Patient Details'),
-                              ),
-                              const SizedBox(width: 10),
-                              ElevatedButton(
-                                onPressed: () {
-                                  _showDeleteWarningDialog(context);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                ),
-                                child: const Text('Delete Patient'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Name: ${_patientData['firstName'] ?? 'N/A'} ${_patientData['lastName'] ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          Text(
-                            'Age: ${_patientData['age']?.toString() ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          Text(
-                            'Gender: ${_patientData['gender'] ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    const Divider(
-                      color: Colors.black,
-                      thickness: 1,
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        await availableCameras().then((cameras) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => CameraExampleHome(
-                                camera: cameras,
-                                userId: widget.userId,
-                                patientKey: widget.patientKey,
-                                onUploadStart: () {
-                                  setState(() {
-                                    _isUploading = true;
-                                  });
-                                },
-                                onUploadComplete: () {
-                                  setState(() {
-                                    _isUploading = false;
-                                  });
-                                },
-                              ),
-                            ),
-                          );
-                        });
-                      },
-                      child: const Text('Add Video Exercise'),
-                    ),
-                    const Text(
-                      'Patient Video Exercises:',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    _buildVideoList(),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-
-  Widget _buildVideoList() {
-    if (_videoExercises.isEmpty) {
-      return const Text('No videos found for this patient.');
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _videoExercises.length,
-      itemBuilder: (context, index) {
-        final video = _videoExercises[index];
-
-        final String word = video['word'] ?? 'N/A';
-        final int difficulty = video['difficulty'] ?? 0;
-        final String status = video['status'] ?? 'N/A';
-        final int overallGrade = video['overallGrade'] ?? 0;
-        final int averageSessionTime = video['averageSessionTime'] ?? 0;
-        final int totalAttempts = video['totalAttempts'] ?? 0;
-        final int totalSuccessfulAttempts =
-            video['totalSuccessfulAttempts'] ?? 0;
-
-        // Determine the color based on overall grade or if no attempts were made
-        Color tileColor;
-        Icon statusIcon;
-
-        if (totalAttempts == 0) {
-          tileColor = Colors.grey.withOpacity(0.3); // Not yet attempted
-          statusIcon =
-              Icon(Icons.access_time, color: Colors.grey); // Clock icon
-        } else if (overallGrade < 50) {
-          tileColor = Colors.red.withOpacity(0.3); // Poor performance
-          statusIcon = Icon(Icons.cancel, color: Colors.red); // Red cross icon
-        } else if (overallGrade >= 50 && overallGrade < 65) {
-          tileColor =
-              Colors.orange.withOpacity(0.3); // Moderate to good performance
-          statusIcon = Icon(Icons.check_circle,
-              color: Colors.orange); // Orange check icon
-        } else {
-          tileColor = Colors.green.withOpacity(0.3); // Perfect performance
-          statusIcon =
-              Icon(Icons.check_circle, color: Colors.green); // Green check icon
-        }
-
-        return Container(
-          margin: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 8.0),
-          padding: const EdgeInsets.all(8.0),
-          decoration: BoxDecoration(
-            color: tileColor, // Move the color into BoxDecoration
-            borderRadius: BorderRadius.circular(10.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.5),
-                spreadRadius: 2,
-                blurRadius: 5,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: ListTile(
-            title: Text(
-              word,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18.0,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text('Difficulty: $difficulty'),
-                    Spacer(),
-                    statusIcon,
-                  ],
-                ),
-                Text('Total Attempts: $totalAttempts'),
-                Text('Successful Attempts: $totalSuccessfulAttempts'),
-                Text(
-                  'Average Session Time: ${Duration(seconds: averageSessionTime).inMinutes}m ${Duration(seconds: averageSessionTime).inSeconds.remainder(60)}s',
-                ),
-                Text('Overall Grade: $overallGrade%'),
-              ],
-            ),
-            leading: const Icon(Icons.video_library, size: 40.0),
-            onTap: () {
-              String? downloadURL = video['downloadURL'];
-              if (downloadURL != null) {
-                _navigateToVideoPreviewScreen(videoUrl: downloadURL);
-              } else {
-                debugPrint('Download URL is null for video at index $index');
-              }
-            },
-          ),
-        );
-      },
-    );
   }
 }

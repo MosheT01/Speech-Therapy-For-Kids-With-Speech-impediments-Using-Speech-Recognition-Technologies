@@ -25,8 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // part of this page was lifted from the example of the official flutter camera plugin that is open source!
-//TODO when uploading a file we set status child did it or not and accuracy if child attemtps when child exercises we update this(metadata)
-// TODO We Should Let The User Preview The File Before Uploading it
+
 import 'package:chewie/chewie.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:universal_html/html.dart' as html;
@@ -48,6 +47,7 @@ class CameraExampleHome extends StatefulWidget {
   final List<CameraDescription>? camera;
   final String userId;
   final String patientKey;
+  final String planKey; // Added planKey to pass the training plan
   final VoidCallback onUploadStart;
   final VoidCallback onUploadComplete;
 
@@ -57,6 +57,7 @@ class CameraExampleHome extends StatefulWidget {
     this.camera,
     required this.userId,
     required this.patientKey,
+    required this.planKey, // Added planKey to pass the training plan
     required this.onUploadStart,
     required this.onUploadComplete,
   }) {
@@ -497,8 +498,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
           // Notify start of upload
           widget.onUploadStart();
-          // Cache the video locally
-          //Call A Function That Caches To Each Platfrom Individually
 
           // Navigate back immediately
           Navigator.pop(context);
@@ -570,6 +569,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
           child: MetadataDialog(
             userId: widget.userId,
             patientKey: widget.patientKey,
+            planKey: widget.planKey, // Pass the planKey here
             fileName: fileName,
           ),
         );
@@ -579,10 +579,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   Future<String> uploadVidToFirebaseStorage(XFile file, String fileName) async {
     try {
-      // Create a reference to the storage location
-      var ref = firebase_storage.FirebaseStorage.instance
-          .ref()
-          .child('/${widget.userId}/${widget.patientKey}/$fileName');
+      // Create a reference to the storage location using planKey
+      var ref = firebase_storage.FirebaseStorage.instance.ref().child(
+          '/${widget.userId}/${widget.patientKey}/${widget.planKey}/$fileName');
 
       // Check if the platform is web
       if (kIsWeb) {
@@ -592,7 +591,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         // Upload the blob to Firebase Storage
         await ref.putBlob(blob);
       } else {
-        // Upload the blob to Firebase Storage
+        // Upload the file to Firebase Storage
         await ref.putFile(File(file.path));
       }
 
@@ -605,9 +604,9 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   Future<void> saveMetadataToDatabase(String fileName, String downloadURL,
       Map<String, dynamic> metadata) async {
-    // Save the metadata to Firebase Realtime Database
+    // Save the metadata to Firebase Realtime Database under the specific plan
     DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
-        'users/${widget.userId}/patients/${widget.patientKey}/videos/$fileName');
+        'users/${widget.userId}/patients/${widget.patientKey}/trainingPlans/${widget.planKey}/videos/$fileName');
     await databaseReference.update({
       'downloadURL': downloadURL,
       'word': metadata['word'],
@@ -757,12 +756,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 class MetadataDialog extends StatefulWidget {
   final String userId;
   final String patientKey;
+  final String planKey; // Added planKey to pass the training plan
   final String fileName;
 
   const MetadataDialog(
       {super.key,
       required this.userId,
       required this.patientKey,
+      required this.planKey, // Added planKey to pass the training plan
       required this.fileName});
 
   @override
