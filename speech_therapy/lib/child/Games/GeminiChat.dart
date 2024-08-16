@@ -123,7 +123,6 @@ class _GeminiChatPageState extends State<GeminiChatPage>
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
         cancelOnError: true,
-        listenMode: stt.ListenMode.dictation,
       ),
       onResult: (val) {
         setState(() {
