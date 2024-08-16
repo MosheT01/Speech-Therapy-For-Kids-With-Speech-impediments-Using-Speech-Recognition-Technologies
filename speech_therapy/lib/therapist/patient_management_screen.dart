@@ -33,7 +33,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   }
 
   void setupRealtimeUpdates() {
-    patientsRef.onValue.listen((event) {
+    patientsRef.onChildChanged.listen((event) {
       print("Real-time update detected.");
       fetchPatients();
     });
@@ -72,9 +72,6 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
       });
       print("Fetching patients completed.");
     }
-    setState(() {
-      isLoading = false;
-    });
   }
 
   void filterPatients(String query) {
@@ -146,7 +143,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
             ),
           ),
           Expanded(
-            child: false//isloading
+            child: false //isloading
                 // ignore: dead_code
                 ? const Center(child: CircularProgressIndicator())
                 : filteredPatients.isEmpty

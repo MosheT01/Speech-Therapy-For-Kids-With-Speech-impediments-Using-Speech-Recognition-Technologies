@@ -26,6 +26,7 @@ class CustomCacheManager {
 class PatientDashboardScreen extends StatefulWidget {
   final String userId;
   final String patientKey;
+
   const PatientDashboardScreen({
     super.key,
     required this.patientKey,
@@ -37,12 +38,33 @@ class PatientDashboardScreen extends StatefulWidget {
 }
 
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
+  late Future<List<Map<String, dynamic>>> _videoExercisesFuture;
   late Map<String, dynamic> patientData = {};
-
-  List<Map<String, dynamic>> videoExercises = [];
 
   bool isLoading = false;
   bool _isUploading = false; // Track video upload status
+
+  @override
+  void initState() {
+    super.initState();
+    fetchPatientData(); // Fetch patient data immediately on init
+    _videoExercisesFuture = fetchVideoExercises(); // Store the future
+
+    // Set up the listener for real-time updates
+    DatabaseReference ref = FirebaseDatabase.instance
+        .ref("users")
+        .child(widget.userId)
+        .child("patients")
+        .child(widget.patientKey)
+        .child("videos");
+
+    ref.onValue.listen((event) {
+      setState(() {
+        _videoExercisesFuture =
+            fetchVideoExercises(); // Reload future on update
+      });
+    });
+  }
 
   // Fetch patient data from the database
   Future<void> fetchPatientData() async {
@@ -62,38 +84,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       if (value != null) {
         setState(() {
           patientData = Map<String, dynamic>.from(value);
-          isLoading = false;
         });
       } else {
-        setState(() {
-          isLoading = false;
-        });
+        patientData = {}; // Clear data if not found
       }
     } catch (e) {
       debugPrint('Error fetching patient data: $e');
+    } finally {
       setState(() {
         isLoading = false;
       });
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    fetchVideoExercises();
-    fetchPatientData();
-    // Set up the listener for real-time updates
-    DatabaseReference ref = FirebaseDatabase.instance
-        .ref("users")
-        .child(widget.userId)
-        .child("patients")
-        .child(widget.patientKey)
-        .child("videos");
-
-    ref.onValue.listen((event) {
-      fetchVideoExercises();
-      fetchPatientData();
-    });
   }
 
   Future<List<Map<String, dynamic>>> fetchVideoExercises() async {
@@ -460,6 +461,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -533,24 +535,26 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     FutureBuilder<List<Map<String, dynamic>>>(
-                      future: fetchVideoExercises(),
+                      future: _videoExercisesFuture,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          if (videoExercises.isEmpty) {
-                            return const Text(
-                                'No videos found for this patient');
-                          } else {
-                            return const CircularProgressIndicator();
-                          }
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        } else if (snapshot.hasError) {
+                          return Text('Error: ${snapshot.error}');
+                        } else if (!snapshot.hasData ||
+                            snapshot.data!.isEmpty) {
+                          return const Text('No videos found for this patient');
                         } else {
-                          videoExercises = snapshot.data ?? [];
+                          List<Map<String, dynamic>> videoExercises =
+                              snapshot.data!;
                           return ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: videoExercises.length,
                             itemBuilder: (context, index) {
-                              Map<String, dynamic>? video =
+                              Map<String, dynamic> video =
                                   videoExercises[index];
 
                               // Extract the relevant data from the video map
@@ -575,6 +579,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                       'Average Session Time: ${Duration(seconds: averageSessionTime).inMinutes}m ${Duration(seconds: averageSessionTime).inSeconds.remainder(60)}s',
                                     ),
                                     Text('Status: $status'),
+                                    Text(
+                                        'Total Attempts: ${video['totalAttempts'] ?? 0}'),
+                                    Text(
+                                        'Total Successful Attempts: ${video['totalSuccessfulAttempts'] ?? 0}'),
                                   ],
                                 ),
                                 leading: const Icon(Icons.video_library),
@@ -613,14 +621,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                   onUploadComplete: () {
                                     setState(() {
                                       _isUploading = false;
-                                      fetchVideoExercises();
+                                      _videoExercisesFuture =
+                                          fetchVideoExercises();
                                     });
                                   },
                                 ),
                               ),
                             ).then((_) {
                               setState(() {
-                                fetchVideoExercises();
+                                _videoExercisesFuture = fetchVideoExercises();
                               });
                             });
                           },
