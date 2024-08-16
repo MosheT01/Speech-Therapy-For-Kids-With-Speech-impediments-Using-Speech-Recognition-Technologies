@@ -23,3 +23,5 @@ jobs:
           entryPoint: speech_therapy
           expires: 30d
           projectId: speechtherapyapp-88a94
+        env:
+         FIREBASE_CLI_EXPERIMENTS: webframeworks
