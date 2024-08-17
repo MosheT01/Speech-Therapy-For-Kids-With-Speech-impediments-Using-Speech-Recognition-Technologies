@@ -112,11 +112,24 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
   num similarityThreshhold = 0.80;
 
+  String? activePlanId;
+
   @override
   void initState() {
     super.initState();
     _initializeVideoPlayer();
     fetchPatientData();
+    // Determine the active plan before proceeding with other initializations
+    determineActivePlan(widget.therapistID, widget.userId).then((_) {
+      if (activePlanId != null) {
+        // Now that the active plan is determined, you can safely initialize other components
+        _initializeVideoPlayer();
+        fetchPatientData();
+      } else {
+        // Handle the case where no active plan is found
+        print('No active plan found for this user.');
+      }
+    });
     _riveController = SimpleAnimation('idle'); // Initial animation state
     _micAnimationController =
         AnimationController(vsync: this, duration: const Duration(seconds: 1));
@@ -150,9 +163,39 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     });
   }
 
+  Future<void> determineActivePlan(String therapistId, String userId) async {
+    try {
+      DatabaseReference plansRef = FirebaseDatabase.instance
+          .ref("users/$therapistId/patients/$userId/trainingPlans");
+
+      final snapshot = await plansRef.once();
+
+      if (snapshot.snapshot.exists) {
+        Map<dynamic, dynamic> plans =
+            snapshot.snapshot.value as Map<dynamic, dynamic>;
+
+        // Find the active plan
+        for (var plan in plans.entries) {
+          if (plan.value['active'] == true) {
+            activePlanId = plan.key;
+            break;
+          }
+        }
+      }
+
+      if (activePlanId == null) {
+        print("No active plan found.");
+      } else {
+        print("Active plan ID: $activePlanId");
+      }
+    } catch (e) {
+      print('Error determining active plan: $e');
+    }
+  }
+
   Future<void> _updateExerciseStatus(String status) async {
     DatabaseReference videoRef = FirebaseDatabase.instance.ref(
-        'users/${widget.therapistID}/patients/${widget.userId}/videos/${widget.videoKey}');
+        'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/${widget.videoKey}');
 
     await videoRef.update({
       'status': status,
@@ -565,7 +608,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
       // Update session metrics in Firebase
       DatabaseReference sessionRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions/$sessionId');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions/$sessionId');
 
       final sessionMetrics = {
         'attempts': _attempts.map((attempt) => attempt.toJson()).toList(),
@@ -590,7 +633,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
       // Update the overall video status, grade, and attempts in Firebase
       DatabaseReference videoRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId');
 
       await videoRef.update({
         'status': overallStatus,
@@ -618,7 +661,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       int totalSuccessfulAttempts = 0;
 
       DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
 
       DataSnapshot snapshot = await sessionsRef.get();
 
@@ -645,7 +688,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       int totalAttempts = 0;
 
       DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
 
       DataSnapshot snapshot = await sessionsRef.get();
 
@@ -672,7 +715,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       int totalAttemptCount = 0;
 
       DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
 
       DataSnapshot snapshot = await sessionsRef.get();
 
@@ -697,7 +740,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
       // Update the overall grade in Firebase
       DatabaseReference videoRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId');
 
       await videoRef.update({
         'overallGrade': overallGrade,
@@ -726,7 +769,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       int sessionCount = 0;
 
       DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
-          'users/${widget.therapistID}/patients/${widget.userId}/videos/$videoId/sessions');
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
 
       DataSnapshot snapshot = await sessionsRef.get();
 
