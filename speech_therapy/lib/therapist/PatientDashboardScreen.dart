@@ -46,32 +46,27 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _isUploading = false;
+  int retryCount = 0;
+  static const int maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
+    _initFirebaseReferences();
+    _initializeData();
+  }
+
+  void _initFirebaseReferences() {
     _patientRef = FirebaseDatabase.instance
-        .ref("users")
-        .child(widget.userId)
-        .child("patients")
-        .child(widget.patientKey);
+        .ref("users/${widget.userId}/patients/${widget.patientKey}");
     _trainingPlansRef = _patientRef.child("trainingPlans");
-
-    _initData();
   }
 
-  @override
-  void dispose() {
-    _patientSubscription.cancel();
-    _trainingPlansSubscription.cancel();
-    super.dispose();
-  }
-
-  void _initData() {
+  void _initializeData() {
     _patientSubscription = _patientRef.onValue.listen(
       (event) {
-        final data = event.snapshot.value;
-        if (data != null && data is Map) {
+        final data = event.snapshot.value as Map?;
+        if (data != null) {
           setState(() {
             _patientData = _parseMap(data);
             _isLoading = false;
@@ -94,16 +89,12 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
     _trainingPlansSubscription = _trainingPlansRef.onValue.listen(
       (event) {
-        final data = event.snapshot.value;
-        if (data != null && data is Map) {
+        final data = event.snapshot.value as Map?;
+        if (data != null) {
           setState(() {
             _trainingPlans = _parseMap(data);
+            _cacheAllVideos();
           });
-
-          // Cache videos in the background after UI rendering
-          if (!kIsWeb) {
-            Future.microtask(() => _cacheAllVideos());
-          }
         } else {
           setState(() {
             _hasError = true;
@@ -116,6 +107,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         });
       },
     );
+  }
+
+  Map<String, dynamic> _parseMap(Map<dynamic, dynamic> input) {
+    final Map<String, dynamic> parsedMap = {};
+    input.forEach((key, value) {
+      if (key is String && value is Map) {
+        parsedMap[key] = _parseMap(value);
+      } else if (key is String) {
+        parsedMap[key] = value;
+      }
+    });
+    return parsedMap;
   }
 
   void _cacheAllVideos() {
@@ -132,22 +135,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     });
   }
 
-  Map<String, dynamic> _parseMap(Map<dynamic, dynamic> input) {
-    final Map<String, dynamic> parsedMap = {};
-    input.forEach((key, value) {
-      if (key is String && value is Map) {
-        parsedMap[key] = _parseMap(value);
-      } else if (key is String) {
-        parsedMap[key] = value;
-      }
-    });
-    return parsedMap;
-  }
-
   void _togglePlanActivation(String planKey, bool isActive) {
-    _trainingPlansRef.child(planKey).update({'active': isActive}).then((_) {
+    DatabaseReference planRef = _trainingPlansRef.child(planKey);
+    planRef.update({'active': isActive}).then((_) {
       if (isActive) {
-        // Deactivate all other plans
         _trainingPlans.forEach((key, _) {
           if (key != planKey) {
             _trainingPlansRef.child(key).update({'active': false});
@@ -156,39 +147,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       }
     }).catchError((error) {
       debugPrint('Error updating plan activation: $error');
-    });
-  }
-
-  void _deletePlan(String planKey) {
-    final DatabaseReference planRef = _trainingPlansRef.child(planKey);
-
-    planRef.child('videos').once().then((DatabaseEvent snapshot) async {
-      final videosData = snapshot.snapshot.value as Map?;
-      if (videosData != null) {
-        for (var videoData in videosData.entries) {
-          final String? downloadURL = videoData.value['downloadURL'];
-          if (downloadURL != null) {
-            await firebase_storage.FirebaseStorage.instance
-                .refFromURL(downloadURL)
-                .delete()
-                .catchError((error) {
-              debugPrint('Error deleting video file from storage: $error');
-            });
-          }
-        }
-      }
-
-      // Now delete the plan from the database
-      planRef.remove().then((_) {
-        debugPrint('Plan deleted successfully');
-      }).catchError((error) {
-        debugPrint('Error deleting plan: $error');
-      });
-    }).catchError((error) {
-      debugPrint('Error retrieving plan data: $error');
-    });
-    setState(() {
-      _trainingPlans.remove(planKey);
     });
   }
 
@@ -234,6 +192,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         );
       },
     );
+  }
+
+  void _addNewTrainingPlan(String planName) {
+    final newPlanRef = _trainingPlansRef.push();
+    newPlanRef.set({'name': planName, 'active': false, 'videos': {}}).then((_) {
+      debugPrint('New training plan added successfully');
+    }).catchError((error) {
+      debugPrint('Error adding new training plan: $error');
+    });
   }
 
   void _showEditPlanNameDialog(BuildContext context, String planKey) {
@@ -289,156 +256,91 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     });
   }
 
-  void _showEditDialog(BuildContext context, String videoKey, String planKey) {
-    String word = _trainingPlans[planKey]['videos'][videoKey]['word'] ?? '';
-    int difficulty =
-        _trainingPlans[planKey]['videos'][videoKey]['difficulty'] ?? 5;
-
-    final wordController = TextEditingController(text: word);
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Edit Video Details'),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: wordController,
-                      decoration: const InputDecoration(labelText: 'Word'),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a word';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('Difficulty:'),
-                    Slider(
-                      value: difficulty.toDouble(),
-                      min: 1.0,
-                      max: 10.0,
-                      divisions: 9,
-                      label: difficulty.toString(),
-                      onChanged: (value) {
-                        setState(() {
-                          difficulty = value.toInt();
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      final DatabaseReference videoRef = _trainingPlansRef
-                          .child(planKey)
-                          .child("videos")
-                          .child(videoKey);
-
-                      videoRef.update({
-                        'word': wordController.text,
-                        'difficulty': difficulty,
-                      }).then((_) {
-                        Navigator.of(context).pop();
-                      }).catchError((error) {
-                        debugPrint('Error updating video details: $error');
-                      });
-                    }
-                  },
-                  child: const Text('Save'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _deleteVideo(String planKey, String videoKey) {
-    final DatabaseReference videoRef =
-        _trainingPlansRef.child(planKey).child("videos").child(videoKey);
-
-    videoRef.once().then((DatabaseEvent snapshot) async {
-      final videoData = snapshot.snapshot.value as Map?;
-      if (videoData != null) {
-        final String? downloadURL = videoData['downloadURL'];
-        if (downloadURL != null) {
-          await firebase_storage.FirebaseStorage.instance
-              .refFromURL(downloadURL)
-              .delete()
-              .catchError((error) {
-            debugPrint('Error deleting video file from storage: $error');
-          });
-        }
-
-        // Now delete the video entry from the database
-        videoRef.remove().then((_) {
-          debugPrint('Video entry deleted from database');
-        }).catchError((error) {
-          debugPrint('Error deleting video entry from database: $error');
-        });
-      }
-    }).catchError((error) {
-      debugPrint('Error retrieving video data: $error');
-    });
-  }
-
-  void _navigateToVideoPreviewScreen({required String videoUrl}) async {
+  void _deletePlan(String planKey) async {
     try {
-      final file = await CustomCacheManager.instance.getSingleFile(videoUrl);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoPreviewScreen(
-            videoUrl: videoUrl,
-            filePath: file.path,
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error navigating to video preview screen: $e');
+      DatabaseReference planRef = _trainingPlansRef.child(planKey);
+      final snapshot = await planRef.child('videos').get();
+      if (snapshot.exists) {
+        final videosData = snapshot.value as Map?;
+        if (videosData != null) {
+          for (var videoData in videosData.entries) {
+            final String? downloadURL = videoData.value['downloadURL'];
+            if (downloadURL != null) {
+              await firebase_storage.FirebaseStorage.instance
+                  .refFromURL(downloadURL)
+                  .delete();
+            }
+          }
+        }
+      }
+      await planRef.remove();
+      debugPrint(
+          'Plan and associated videos deleted successfully from database and storage.');
+      setState(() {
+        _trainingPlans.remove(planKey);
+      });
+    } catch (error) {
+      debugPrint('Error deleting plan: $error');
     }
   }
 
-  void _navigateToCameraScreen(String planKey) async {
-    await availableCameras().then((cameras) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CameraExampleHome(
-            camera: cameras,
-            userId: widget.userId,
-            patientKey: widget.patientKey,
-            planKey: planKey,
-            onUploadStart: () {
-              setState(() {
-                _isUploading = true;
-              });
-            },
-            onUploadComplete: () {
-              setState(() {
-                _isUploading = false;
-              });
-            },
-          ),
-        ),
-      );
-    });
+  void _deleteVideo(String planKey, String videoKey) async {
+    try {
+      DatabaseReference videoRef =
+          _trainingPlansRef.child(planKey).child('videos').child(videoKey);
+      final snapshot = await videoRef.get();
+      if (snapshot.exists) {
+        final videoData = snapshot.value as Map?;
+        final String? downloadURL = videoData?['downloadURL'];
+        if (downloadURL != null) {
+          await firebase_storage.FirebaseStorage.instance
+              .refFromURL(downloadURL)
+              .delete();
+        }
+      }
+      await videoRef.remove();
+      debugPrint('Video deleted successfully from database and storage.');
+    } catch (error) {
+      debugPrint('Error deleting video: $error');
+    }
+  }
+
+  Future<void> _deletePatient() async {
+    try {
+      // Delete all training plans (and associated videos) first
+      for (String planKey in _trainingPlans.keys) {
+        _deletePlan(planKey);
+      }
+
+      // Remove patient data from Realtime Database
+      await _patientRef.remove();
+
+      // Update the patient's `hasTherapist` field and remove `therapistId`
+      final DatabaseReference patientHasTherapistRef = FirebaseDatabase.instance
+          .ref("users/${widget.patientKey}/hasTherapist");
+      await patientHasTherapistRef.set(false);
+
+      final DatabaseReference patientTherapistIdRef = FirebaseDatabase.instance
+          .ref("users/${widget.patientKey}/therapistId");
+      await patientTherapistIdRef.remove();
+
+      debugPrint(
+          'Patient and all associated data deleted successfully from database and storage.');
+
+      // Navigate out of the current screen
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (error) {
+      debugPrint('Error deleting patient: $error');
+    }
+  }
+
+  @override
+  void dispose() {
+    _patientSubscription.cancel();
+    _trainingPlansSubscription.cancel();
+    super.dispose();
   }
 
   @override
@@ -578,15 +480,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  void _addNewTrainingPlan(String planName) {
-    final newPlanRef = _trainingPlansRef.push();
-    newPlanRef.set({'name': planName, 'active': false, 'videos': {}}).then((_) {
-      debugPrint('New training plan added successfully');
-    }).catchError((error) {
-      debugPrint('Error adding new training plan: $error');
-    });
-  }
-
   List<Widget> _buildVideoList(String planKey, Map<String, dynamic> videos) {
     if (videos.isEmpty) {
       return [const ListTile(title: Text('No videos found in this plan.'))];
@@ -706,21 +599,31 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  void _showDeleteWarningDialog(BuildContext context) {
+  void _showDeleteConfirmationDialog({
+    required BuildContext context,
+    required String title,
+    required String content,
+    required VoidCallback onConfirm,
+  }) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Delete Patient'),
-          content: const Text(
-              'Are you sure you want to delete this patient? This action cannot be undone.'),
+          title: Text(title),
+          content: Text(content),
           actions: [
             TextButton(
-              onPressed: () async {
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
                 Navigator.of(context).pop();
                 if (_isUploading) {
                   Fluttertoast.showToast(
-                    msg: 'Cannot delete patient while video is uploading.',
+                    msg: 'Cannot delete item while video is uploading.',
                     toastLength: Toast.LENGTH_SHORT,
                     gravity: ToastGravity.BOTTOM,
                     backgroundColor: Colors.red,
@@ -728,17 +631,12 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   );
                   return;
                 }
-
-                await _deletePatient();
+                onConfirm();
               },
               child: const Text(
                 'Delete',
                 style: TextStyle(color: Colors.red),
               ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
             ),
           ],
         );
@@ -746,45 +644,153 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  Future<void> _deletePatient() async {
-    try {
-      await deleteAllPatientVideos(widget.userId, widget.patientKey);
+  void _showEditDialog(BuildContext context, String videoKey, String planKey) {
+    String word = _trainingPlans[planKey]['videos'][videoKey]['word'] ?? '';
+    int difficulty =
+        _trainingPlans[planKey]['videos'][videoKey]['difficulty'] ?? 5;
 
-      await _patientRef.remove();
+    final wordController = TextEditingController(text: word);
+    final formKey = GlobalKey<FormState>();
 
-      DatabaseReference patientHasTherapistRef = FirebaseDatabase.instance
-          .ref("users/${widget.patientKey}/hasTherapist");
-      await patientHasTherapistRef.set(false);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit Video Details'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: wordController,
+                      decoration: const InputDecoration(labelText: 'Word'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a word';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Difficulty:'),
+                    Slider(
+                      value: difficulty.toDouble(),
+                      min: 1.0,
+                      max: 10.0,
+                      divisions: 9,
+                      label: difficulty.toString(),
+                      onChanged: (value) {
+                        setState(() {
+                          difficulty = value.toInt();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      final DatabaseReference videoRef = _trainingPlansRef
+                          .child(planKey)
+                          .child("videos")
+                          .child(videoKey);
 
-      DatabaseReference patientTherapistIdRef = FirebaseDatabase.instance
-          .ref("users/${widget.patientKey}/therapistId");
-      await patientTherapistIdRef.remove();
-
-      debugPrint(
-          'Patient removed from care and their videos deleted successfully');
-      Navigator.of(context).pop();
-    } catch (e) {
-      debugPrint('Error deleting patient: $e');
-    }
+                      videoRef.update({
+                        'word': wordController.text,
+                        'difficulty': difficulty,
+                      }).then((_) {
+                        Navigator.of(context).pop();
+                      }).catchError((error) {
+                        debugPrint('Error updating video details: $error');
+                      });
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
-  Future<void> deleteAllPatientVideos(String userId, String patientKey) async {
-    try {
-      var ref = firebase_storage.FirebaseStorage.instance
-          .ref()
-          .child('/$userId/$patientKey/');
+  void _navigateToCameraScreen(String planKey) async {
+    await availableCameras().then((cameras) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CameraExampleHome(
+            camera: cameras,
+            userId: widget.userId,
+            patientKey: widget.patientKey,
+            planKey: planKey,
+            onUploadStart: () {
+              setState(() {
+                _isUploading = true;
+              });
+            },
+            onUploadComplete: () {
+              setState(() {
+                _isUploading = false;
+              });
+            },
+          ),
+        ),
+      );
+    });
+  }
 
-      var listResult = await ref.listAll();
+  void _navigateToVideoPreviewScreen({required String videoUrl}) async {
+    if (kIsWeb) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoPreviewScreen(
+            videoUrl: videoUrl,
+            filePath: null,
+          ),
+        ),
+      );
+    } else {
+      try {
+        final file =
+            await CustomCacheManager.instance.getFileFromCache(videoUrl);
+        String? filePath = file?.file.path;
 
-      for (var item in listResult.items) {
-        await item.delete();
+        if (filePath != null && filePath.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VideoPreviewScreen(
+                videoUrl: videoUrl,
+                filePath: filePath,
+              ),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VideoPreviewScreen(
+                videoUrl: videoUrl,
+                filePath: null,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error navigating to video preview screen: $e');
       }
-
-      await ref.delete();
-
-      debugPrint('All patient videos deleted successfully');
-    } catch (e) {
-      debugPrint('Error deleting patient videos: $e');
     }
   }
 }
