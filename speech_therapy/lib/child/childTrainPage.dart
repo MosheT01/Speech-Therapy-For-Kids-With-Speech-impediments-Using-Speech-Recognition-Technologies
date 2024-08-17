@@ -1,4 +1,5 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
@@ -85,13 +86,15 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
               videoData['key'] = key; // Add the video key to the video data
 
               // Cache the video URL
-              String? downloadURL = videoData['downloadURL'];
-              if (downloadURL != null) {
-                CustomCacheManager.instance
-                    .downloadFile(downloadURL)
-                    .catchError((e) {
-                  debugPrint('Error caching video URL: $e');
-                });
+              if (!kIsWeb) {
+                String? downloadURL = videoData['downloadURL'];
+                if (downloadURL != null) {
+                  CustomCacheManager.instance
+                      .downloadFile(downloadURL)
+                      .catchError((e) {
+                    debugPrint('Error caching video URL: $e');
+                  });
+                }
               }
 
               videoList.add(videoData);
