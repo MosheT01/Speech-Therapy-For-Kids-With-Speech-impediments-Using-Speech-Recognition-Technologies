@@ -10,6 +10,7 @@ import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:speech_therapy/VideoPreviewScreen.dart';
 import 'Camera.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+//TODO DELETING PATIENT DOESNT DELTE PROPERLY IN STRORAGE
 
 class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
@@ -367,7 +368,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     try {
       // Delete all training plans (and associated videos) first
       for (String planKey in _trainingPlans.keys) {
-        _deletePlan(planKey);
+        DatabaseReference planRef = _trainingPlansRef.child(planKey);
+        final snapshot = await planRef.child('videos').get();
+        if (snapshot.exists) {
+          final videosData = snapshot.value as Map?;
+          if (videosData != null) {
+            for (var videoData in videosData.entries) {
+              final String? downloadURL = videoData.value['downloadURL'];
+              if (downloadURL != null) {
+                await firebase_storage.FirebaseStorage.instance
+                    .refFromURL(downloadURL)
+                    .delete();
+              }
+            }
+          }
+        }
+        await planRef.remove();
       }
 
       // Remove patient data from Realtime Database
@@ -392,13 +408,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     } catch (error) {
       debugPrint('Error deleting patient: $error');
     }
-  }
-
-  @override
-  void dispose() {
-    _patientSubscription.cancel();
-    _trainingPlansSubscription.cancel();
-    super.dispose();
   }
 
   @override
