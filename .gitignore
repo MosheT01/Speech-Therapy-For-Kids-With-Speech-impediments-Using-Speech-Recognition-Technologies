@@ -28,3 +28,6 @@ speech_therapy/lib/googleCloudAPIs/g2p_api.dart
 speech_therapy/lib/googleCloudAPIs/gemini_api.dart
 speech_therapy/lib/googleCloudAPIs/text_to_speech_api.dart
 speech_therapy/lib/googleCloudAPIs/gemini_chat_api.dart
+speech_therapy/functions/package.json
+speech_therapy/functions/index.js
+speech_therapy/functions/
