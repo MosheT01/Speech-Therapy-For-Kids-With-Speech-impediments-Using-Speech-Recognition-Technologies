@@ -256,53 +256,108 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     });
   }
 
-  void _deletePlan(String planKey) async {
-    try {
-      DatabaseReference planRef = _trainingPlansRef.child(planKey);
-      final snapshot = await planRef.child('videos').get();
-      if (snapshot.exists) {
-        final videosData = snapshot.value as Map?;
-        if (videosData != null) {
-          for (var videoData in videosData.entries) {
-            final String? downloadURL = videoData.value['downloadURL'];
+  void _deletePlan(String planKey) {
+    _showDeleteConfirmationDialog(
+      context: context,
+      title: 'Delete Training Plan',
+      content:
+          'Are you sure you want to delete this training plan? This action cannot be undone.',
+      onConfirm: () async {
+        try {
+          DatabaseReference planRef = _trainingPlansRef.child(planKey);
+          final snapshot = await planRef.child('videos').get();
+          if (snapshot.exists) {
+            final videosData = snapshot.value as Map?;
+            if (videosData != null) {
+              for (var videoData in videosData.entries) {
+                final String? downloadURL = videoData.value['downloadURL'];
+                if (downloadURL != null) {
+                  await firebase_storage.FirebaseStorage.instance
+                      .refFromURL(downloadURL)
+                      .delete();
+                }
+              }
+            }
+          }
+          await planRef.remove();
+          debugPrint(
+              'Plan and associated videos deleted successfully from database and storage.');
+          setState(() {
+            _trainingPlans.remove(planKey);
+          });
+        } catch (error) {
+          debugPrint('Error deleting plan: $error');
+        }
+      },
+    );
+  }
+
+  void _deleteVideo(String planKey, String videoKey) {
+    _showDeleteConfirmationDialog(
+      context: context,
+      title: 'Delete Video',
+      content:
+          'Are you sure you want to delete this video? This action cannot be undone.',
+      onConfirm: () async {
+        try {
+          DatabaseReference videoRef =
+              _trainingPlansRef.child(planKey).child('videos').child(videoKey);
+          final snapshot = await videoRef.get();
+          if (snapshot.exists) {
+            final videoData = snapshot.value as Map?;
+            final String? downloadURL = videoData?['downloadURL'];
             if (downloadURL != null) {
               await firebase_storage.FirebaseStorage.instance
                   .refFromURL(downloadURL)
                   .delete();
             }
           }
+          await videoRef.remove();
+          debugPrint('Video deleted successfully from database and storage.');
+        } catch (error) {
+          debugPrint('Error deleting video: $error');
         }
-      }
-      await planRef.remove();
-      debugPrint(
-          'Plan and associated videos deleted successfully from database and storage.');
-      setState(() {
-        _trainingPlans.remove(planKey);
-      });
-    } catch (error) {
-      debugPrint('Error deleting plan: $error');
-    }
+      },
+    );
   }
 
-  void _deleteVideo(String planKey, String videoKey) async {
-    try {
-      DatabaseReference videoRef =
-          _trainingPlansRef.child(planKey).child('videos').child(videoKey);
-      final snapshot = await videoRef.get();
-      if (snapshot.exists) {
-        final videoData = snapshot.value as Map?;
-        final String? downloadURL = videoData?['downloadURL'];
-        if (downloadURL != null) {
-          await firebase_storage.FirebaseStorage.instance
-              .refFromURL(downloadURL)
-              .delete();
-        }
-      }
-      await videoRef.remove();
-      debugPrint('Video deleted successfully from database and storage.');
-    } catch (error) {
-      debugPrint('Error deleting video: $error');
-    }
+  void _showDeleteWarningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Patient'),
+          content: const Text(
+              'Are you sure you want to delete this patient? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                if (_isUploading) {
+                  Fluttertoast.showToast(
+                    msg: 'Cannot delete patient while video is uploading.',
+                    toastLength: Toast.LENGTH_SHORT,
+                    gravity: ToastGravity.BOTTOM,
+                    backgroundColor: Colors.red,
+                    textColor: Colors.white,
+                  );
+                  return;
+                }
+                await _deletePatient();
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _deletePatient() async {
