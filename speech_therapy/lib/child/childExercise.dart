@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:rive/rive.dart';
-import 'package:flutter/material.dart';
 import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/gemini_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/text_to_speech_api.dart';
@@ -89,7 +89,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   bool _showCelebration = false;
   bool aboveSimilarityThreshhold = false;
   bool _useIPA = true;
-  bool micToggle = false;
   late AnimationController _micAnimationController;
   late Animation<double> _micAnimation;
   late RiveAnimationController _riveController;
@@ -113,6 +112,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   num similarityThreshhold = 0.80;
 
   String? activePlanId;
+  bool _isMicButtonLocked = false;
+  bool _isProcessingRecognition = false;
 
   @override
   void initState() {
@@ -141,23 +142,20 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
               _micAnimationController.forward();
             }
           });
-    // Set the status and error callbacks
-    SpeechService().setStatusCallback((status) {
+
+    SpeechService().setStatusCallback((status) async {
       print("Status: $status");
-      if ((status.contains('done') || status.contains('notListening')) &&
-          _recognizedText.isEmpty) {
-        _stopListening();
-        //play lose sound
-        _playFeedbackSound('lose.wav', success: false);
-      }
-      if ((status.contains('done') ||
-          (status.contains('notListening')) && _recognizedText.isEmpty)) {
+      if ((status.contains('done') || status.contains('notListening'))) {
+        await _speech.stop();
+        await Future.delayed(Duration(seconds: 1));
         _stopListening();
       }
     });
 
-    SpeechService().setErrorCallback((error) {
+    SpeechService().setErrorCallback((error) async {
       print("Error: $error");
+      await _speech.stop();
+      await Future.delayed(Duration(seconds: 1));
       _stopListening();
     });
   }
@@ -227,7 +225,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   void _triggerRiveState(String state) {
     _resetRiveInputs(); // Reset all inputs before setting a new one
 
-    // Set the appropriate input to trigger the state change
     switch (state) {
       case 'Talk':
         _talkInput?.value = true;
@@ -242,11 +239,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         _failInput?.value = true;
         break;
       default:
-        // No need to deactivate/reactivate the controller unnecessarily
         _riveController.isActive = true; // Default to 'idle'
     }
 
-    // Immediately trigger the state by forcing an update
     _riveController.isActive = false; // Deactivate to reset the state machine
     _riveController.isActive = true; // Reactivate to start the new state
   }
@@ -289,7 +284,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         allowPlaybackSpeedChanging:
             !_isListening, // Disable controls when mic is active
         allowFullScreen: !_isListening,
-        showControls: !_isListening,
+        showControls: !_isListening && !_isPlaying,
         allowMuting: false,
       );
 
@@ -297,7 +292,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         _isLoading = false;
       });
 
-      // Listen to the video playing state
       _controller.addListener(() {
         setState(() {
           _isPlaying = _controller.value.isPlaying;
@@ -325,14 +319,18 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Future<void> _toggleListening() async {
-    if (_isPlaying) {
+    if (_isMicButtonLocked || !_speech.isAvailable || _isPlaying) {
       return;
     }
+    _isMicButtonLocked = true; // Lock the button
+
     if (_isListening) {
       await _stopListening();
     } else {
       await _startListening();
     }
+
+    _isMicButtonLocked = false; // Unlock the button after the operation
   }
 
   Future<void> _startListening() async {
@@ -346,13 +344,13 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     _micAnimationController.forward();
     _chewieController.setVolume(0);
     _controller.pause();
+
     _speech.listen(
       listenOptions: stt.SpeechListenOptions(
         partialResults: true,
-        cancelOnError: false,
+        cancelOnError: true,
       ),
       pauseFor: kIsWeb ? const Duration(seconds: 3) : null,
-      //    listenFor: kIsWeb ? const Duration(seconds: 15) : null,
       onResult: (val) {
         setState(() {
           _recognizedText = val.recognizedWords;
@@ -364,15 +362,18 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
   Future<void> _stopListening() async {
     if (_isListening) {
-      await _speech.stop();
       setState(() {
         _isListening = false;
         _triggerRiveState('idle');
       });
       _micAnimationController.stop();
       _chewieController.setVolume(1);
-      if (_recognizedText.isNotEmpty) {
+
+      if (_recognizedText.isNotEmpty && !_isProcessingRecognition) {
+        _isProcessingRecognition = true; // Lock processing
         await _evaluateSpeech(_recognizedText);
+        _isProcessingRecognition = false; // Unlock processing
+        await Future.delayed(const Duration(seconds: 1));
         setState(() {
           _recognizedText = '';
         });
@@ -462,34 +463,31 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       success: aboveSimilarityThreshhold,
     ));
 
-    // If this attempt is successful, calculate session metrics and save
     if (aboveSimilarityThreshhold) {
       _playCelebrationAnimation();
       await _playFeedbackSound('win.wav', success: true);
-      // Choose a random string from encouragementMessages array
       String randomEncouragement =
           encouragementMessages[Random().nextInt(encouragementMessages.length)];
-      await Future.delayed(const Duration(seconds: 1));
       await _playAudio(randomEncouragement);
-      await _updateOverallGradeAndSessionMetrics(widget.videoKey, "success");
-      Navigator.pop(context);
+      _updateOverallGradeAndSessionMetrics(widget.videoKey, "success");
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     } else if (_attempts.length >= 3) {
       await _playFeedbackSound('lose.wav', success: false);
       String encouragement = "It's okay! You can get it next time!";
       await _playAudio(encouragement);
       _updateOverallGradeAndSessionMetrics(widget.videoKey, "failed");
-      Navigator.pop(context);
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     } else {
       await _playFeedbackSound('lose.wav', success: false);
       try {
         String encouragement = await GeminiAPI().getEncouragement(
             "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success(exercise passed we go to the next level):'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
-        await _playAudio(
-          encouragement,
-        );
-        print('Encouragement: $encouragement');
+        await _playAudio(encouragement);
       } catch (e) {
-        print("error in gemini api $e");
         String errorMessage = "Try again, I didn't catch that.";
         await _playAudio(errorMessage);
       }
@@ -500,11 +498,9 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   void _playCelebrationAnimation() async {
-    // Play celebration animation using Lottie
     setState(() {
       _showCelebration = true;
     });
-    // Play the celebration sound
     await _audioPlayer.play(AssetSource('woo-hoo.mp3'));
 
     await Future.delayed(const Duration(seconds: 1));
@@ -532,25 +528,28 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       String audioContent = await TextToSpeechAPI().getSpeechAudio(text);
       final bytes = base64Decode(audioContent);
       setState(() {
-        _triggerRiveState('Talk'); // Trigger Rive state to 'Talk'
+        _triggerRiveState('Talk');
       });
 
       final completer = Completer<void>();
 
-      // Listen for the completion of the audio
       _audioPlayer.onPlayerComplete.listen((event) {
         setState(() {
-          _triggerRiveState('idle'); // Reset Rive state to 'idle' after audio
+          _triggerRiveState('idle');
         });
-        completer.complete(); // Complete the future
+        completer.complete();
       });
 
       await _audioPlayer.play(BytesSource(bytes));
-      await completer.future; // Wait until the audio is finished playing
+      await completer.future;
+
+      setState(() {
+        _isPlaying = false;
+      });
     } catch (e) {
       print('Error playing audio: $e');
       setState(() {
-        _triggerRiveState('idle'); // Reset Rive state to 'idle' on error
+        _triggerRiveState('idle');
       });
     }
   }
@@ -591,21 +590,17 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   Future<void> _updateOverallGradeAndSessionMetrics(
       String videoId, String status) async {
     try {
-      // Calculate the average grade for the current session
       int sessionTotalGrade =
           _attempts.fold(0, (sum, attempt) => sum + attempt.grade.toInt());
       int sessionAverageGrade =
           _attempts.isNotEmpty ? sessionTotalGrade ~/ _attempts.length : 0;
 
-      // Calculate the session duration (time spent on the video playback page)
       int sessionTimeSpent = _totalTimeSpent.inSeconds;
 
-      // Calculate successful and total attempts for the session
       int sessionSuccessfulAttempts =
           _attempts.where((attempt) => attempt.success).length;
       int sessionTotalAttempts = _attempts.length;
 
-      // Update session metrics in Firebase
       DatabaseReference sessionRef = FirebaseDatabase.instance.ref(
           'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions/$sessionId');
 
@@ -620,17 +615,14 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
 
       await sessionRef.set(sessionMetrics);
 
-      // Update the overall video stats (including overall grade, total and successful attempts, and average session time)
       int overallGrade = await _calculateAndUpdateOverallGrade(videoId);
       int overallSessionTime = await _calculateAverageSessionTime(videoId);
       int totalSuccessfulAttempts =
           await _calculateTotalSuccessfulAttempts(videoId);
       int totalAttempts = await _calculateTotalAttempts(videoId);
 
-      // Determine the overall video status
       String overallStatus = overallGrade >= 50 ? 'success' : 'failed';
 
-      // Update the overall video status, grade, and attempts in Firebase
       DatabaseReference videoRef = FirebaseDatabase.instance.ref(
           'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId');
 
@@ -737,7 +729,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
       int overallGrade =
           totalAttemptCount > 0 ? totalGrade ~/ totalAttemptCount : 0;
 
-      // Update the overall grade in Firebase
       DatabaseReference videoRef = FirebaseDatabase.instance.ref(
           'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId');
 
@@ -762,6 +753,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Duration get _totalTimeSpent => DateTime.now().difference(startTime);
+
   Future<int> _calculateAverageSessionTime(String videoId) async {
     try {
       int totalTimeSpent = 0;
@@ -833,7 +825,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Video player expands to fill available space
                     Expanded(
                       child: AspectRatio(
                         aspectRatio: _controller.value.aspectRatio,
@@ -877,7 +868,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                          // This row should adapt and space evenly
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -908,12 +898,10 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                                   ),
                                 ),
                               ),
-                              const SizedBox(
-                                  width:
-                                      20), // Add space between the mic and animation
+                              const SizedBox(width: 20),
                               Flexible(
                                 child: SizedBox(
-                                  height: 100, // Adjust the size dynamically
+                                  height: 100,
                                   width: 100,
                                   child: RiveAnimation.asset(
                                     'assets/wave,_hear_and_talk.riv',
