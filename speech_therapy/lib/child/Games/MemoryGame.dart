@@ -69,17 +69,23 @@ class _GameScreenState extends State<GameScreen> {
   int matchCount = 0;
   List<Map<String, dynamic>> _videoList = []; // Store fetched videos
   String? activePlanId;
-
-  bool isLoading = true; // Store the active plan ID
+  bool isLoading = true; // To handle loading state
 
   @override
   void initState() {
     super.initState();
+    _initializeGame();
+  }
 
-    determineActivePlan().then((_) {
-      startNewGame();
-      _fetchAndCacheVideos(); // Start fetching and caching videos in the background
-    });
+  Future<void> _initializeGame() async {
+    await determineActivePlan(); // Fetch active plan
+    if (activePlanId != null) {
+      _fetchAndCacheVideos(); // Fetch and cache videos based on the active plan
+      startNewGame(); // Start the game after loading
+    } else {
+      // Handle the case where no active plan is found
+      print('No active plan found');
+    }
   }
 
   Future<void> determineActivePlan() async {
@@ -151,11 +157,12 @@ class _GameScreenState extends State<GameScreen> {
           if (!kIsWeb) {
             String? videoUrl = videoData['downloadURL'];
             if (videoUrl != null) {
-              CustomCacheManager.instance
+              final file = await CustomCacheManager.instance
                   .downloadFile(videoUrl)
                   .catchError((e) {
                 print('Error caching video: $e');
               });
+              print('Cached file path: ${file?.file.path}');
             }
           }
         }
@@ -370,9 +377,7 @@ class _GameScreenState extends State<GameScreen> {
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(),
-                    )
+                  ? const Center(child: CircularProgressIndicator())
                   : GridView.builder(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 4,

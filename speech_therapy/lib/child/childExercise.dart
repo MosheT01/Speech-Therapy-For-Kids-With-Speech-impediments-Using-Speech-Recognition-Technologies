@@ -123,7 +123,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     determineActivePlan(widget.therapistID, widget.userId).then((_) {
       if (activePlanId != null) {
         // Now that the active plan is determined, you can safely initialize other components
-        _initializeVideoPlayer();
         fetchPatientData();
       } else {
         // Handle the case where no active plan is found
