@@ -199,10 +199,11 @@ class _GameScreenState extends State<GameScreen> {
             if (videoUrl != null) {
               final file = await CustomCacheManager.instance
                   .downloadFile(videoUrl)
+                  // ignore: body_might_complete_normally_catch_error
                   .catchError((e) {
                 print('Error caching video: $e');
               });
-              print('Cached file path: ${file?.file.path}');
+              print('Cached file path: ${file.file.path}');
             }
           }
         }

@@ -90,6 +90,7 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
                 if (downloadURL != null) {
                   CustomCacheManager.instance
                       .downloadFile(downloadURL)
+                      // ignore: body_might_complete_normally_catch_error
                       .catchError((e) {
                     debugPrint('Error caching video URL: $e');
                   });

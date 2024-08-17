@@ -190,25 +190,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     }
   }
 
-  Future<void> _updateExerciseStatus(String status) async {
-    DatabaseReference videoRef = FirebaseDatabase.instance.ref(
-        'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/${widget.videoKey}');
-
-    await videoRef.update({
-      'status': status,
-    }).catchError((error) {
-      Fluttertoast.showToast(
-        msg: "Failed to update video status: $error",
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 1,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-    });
-  }
-
   void _onRiveInit(Artboard artboard) {
     final controller =
         StateMachineController.fromArtboard(artboard, 'State Machine 1');

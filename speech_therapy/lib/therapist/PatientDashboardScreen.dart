@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field, unused_local_variable
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -127,6 +129,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       videos.forEach((videoKey, videoData) {
         final String? downloadURL = videoData['downloadURL'];
         if (downloadURL != null) {
+          // ignore: body_might_complete_normally_catch_error
           CustomCacheManager.instance.downloadFile(downloadURL).catchError((e) {
             debugPrint('Error caching video URL: $e');
           });

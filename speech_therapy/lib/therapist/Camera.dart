@@ -431,7 +431,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
           builder: (BuildContext context) {
             return PopScope(
               canPop: false,
-              onPopInvoked: (didPop) async => false,
+              //onPopInvoked: (didPop) async => false,
               child: Dialog(
                 insetPadding:
                     EdgeInsets.zero, // Make the dialog take the whole screen
@@ -453,14 +453,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                         onPressed: () {
                           Navigator.of(context).pop(false);
                           videoController?.dispose();
-                          chewieController?.dispose();
+                          //        chewieController?.dispose();
                         },
                         child: const Text('Retake'),
                       ),
                       TextButton(
                         onPressed: () {
                           videoController?.dispose();
-                          chewieController?.dispose();
+//chewieController?.dispose();
                           Navigator.of(context).pop(true);
                         },
                         child: const Text('Upload'),
@@ -565,7 +565,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       builder: (BuildContext context) {
         return PopScope(
           canPop: false,
-          onPopInvoked: (didPop) async => false,
+          //onPopInvoked: (didPop) async => false,
           child: MetadataDialog(
             userId: widget.userId,
             patientKey: widget.patientKey,
@@ -717,27 +717,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       _showCameraException(e);
       rethrow;
     }
-  }
-
-  Future<void> _startVideoPlayer() async {
-    if (videoFile == null) {
-      return;
-    }
-
-    final VideoPlayerController vController = kIsWeb
-        ? VideoPlayerController.networkUrl(Uri.parse(videoFile!.path))
-        : VideoPlayerController.file(File(videoFile!.path));
-
-    await vController.setLooping(true);
-    await vController.initialize();
-    await videoController?.dispose();
-    if (mounted) {
-      setState(() {
-        imageFile = null;
-        videoController = vController;
-      });
-    }
-    await vController.play();
   }
 
   void _showCameraException(CameraException e) {
