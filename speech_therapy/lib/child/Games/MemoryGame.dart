@@ -108,6 +108,13 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _initializeGame() async {
+    setState(() {
+      isLoading = true;
+      icons.shuffle();
+      cardStateKeys =
+          List.generate(icons.length, (_) => GlobalKey<FlipCardState>());
+      cardFlipped = List.generate(icons.length, (_) => false);
+    });
     await determineActivePlan(); // Fetch active plan
     if (activePlanId != null) {
       _fetchAndCacheVideos(); // Fetch and cache videos based on the active plan
@@ -116,6 +123,9 @@ class _GameScreenState extends State<GameScreen> {
       // Handle the case where no active plan is found
       print('No active plan found');
     }
+    setState(() {
+      isLoading = false;
+    });
   }
 
   Future<void> determineActivePlan() async {
@@ -210,6 +220,9 @@ class _GameScreenState extends State<GameScreen> {
 
   void startNewGame() {
     setState(() {
+      isLoading = true;
+    });
+    setState(() {
       // Reset game state variables
       previousIndex = -1;
       flip = false;
@@ -218,9 +231,14 @@ class _GameScreenState extends State<GameScreen> {
 
       // Shuffle the icons and reset the card states
       icons.shuffle();
+
+      // Ensure cardStateKeys is the same length as icons
       cardStateKeys =
           List.generate(icons.length, (_) => GlobalKey<FlipCardState>());
       cardFlipped = List.generate(icons.length, (_) => false);
+    });
+    setState(() {
+      isLoading = false;
     });
   }
 

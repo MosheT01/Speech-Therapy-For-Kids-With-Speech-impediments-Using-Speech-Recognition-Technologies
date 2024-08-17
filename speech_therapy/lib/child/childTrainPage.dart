@@ -42,22 +42,21 @@ class _ChildTrainPageState extends State<ChildTrainPage> {
       _isLoading = true; // Show loading indicator
     });
 
-    // Fetch the therapist ID asynchronously
-    String? therapistId = await fetchTherapistIdFromChildId(widget.userId);
-
-    // Check if therapistId is not null
-    if (therapistId == null) {
-      throw Exception("Therapist ID not found");
-    }
-
-    DatabaseReference trainingPlansRef = FirebaseDatabase.instance
-        .ref("users")
-        .child(therapistId)
-        .child("patients")
-        .child(widget.userId)
-        .child("trainingPlans");
-
     try {
+      // Fetch the therapist ID asynchronously
+      String? therapistId = await fetchTherapistIdFromChildId(widget.userId);
+
+      // Check if therapistId is not null
+      if (therapistId == null) {
+        throw Exception("Therapist ID not found");
+      }
+
+      DatabaseReference trainingPlansRef = FirebaseDatabase.instance
+          .ref("users")
+          .child(therapistId)
+          .child("patients")
+          .child(widget.userId)
+          .child("trainingPlans");
       final dataSnapshot = await trainingPlansRef.once();
       final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
 
