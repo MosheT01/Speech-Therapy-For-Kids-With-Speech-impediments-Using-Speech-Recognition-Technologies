@@ -68,28 +68,73 @@ class _GameScreenState extends State<GameScreen> {
   int moveCount = 0;
   int matchCount = 0;
   List<Map<String, dynamic>> _videoList = []; // Store fetched videos
+  String? activePlanId;
+
+  bool isLoading = true; // Store the active plan ID
 
   @override
   void initState() {
     super.initState();
-    startNewGame();
-    _fetchAndCacheVideos(); // Start fetching and caching videos in the background
+
+    determineActivePlan().then((_) {
+      startNewGame();
+      _fetchAndCacheVideos(); // Start fetching and caching videos in the background
+    });
   }
 
-  Future<void> _fetchAndCacheVideos() async {
+  Future<void> determineActivePlan() async {
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      final userId = widget.userId;
-      final therapistId = await fetchTherapistIdFromChildId(userId);
+      final therapistId = await fetchTherapistIdFromChildId(widget.userId);
       if (therapistId == null) {
         throw Exception("Therapist ID not found");
       }
 
-      DatabaseReference ref = FirebaseDatabase.instance
-          .ref("users")
-          .child(therapistId)
-          .child("patients")
-          .child(userId)
-          .child("videos");
+      DatabaseReference plansRef = FirebaseDatabase.instance
+          .ref("users/$therapistId/patients/${widget.userId}/trainingPlans");
+
+      final snapshot = await plansRef.once();
+
+      if (snapshot.snapshot.exists) {
+        Map<dynamic, dynamic> plans =
+            snapshot.snapshot.value as Map<dynamic, dynamic>;
+
+        // Find the active plan
+        for (var plan in plans.entries) {
+          if (plan.value['active'] == true) {
+            activePlanId = plan.key;
+            break;
+          }
+        }
+      }
+
+      if (activePlanId == null) {
+        throw Exception("No active plan found");
+      }
+    } catch (e) {
+      print('Error determining active plan: $e');
+    }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> _fetchAndCacheVideos() async {
+    try {
+      if (activePlanId == null) {
+        throw Exception("Active plan ID not set");
+      }
+
+      final therapistId = await fetchTherapistIdFromChildId(widget.userId);
+      if (therapistId == null) {
+        throw Exception("Therapist ID not found");
+      }
+
+      DatabaseReference ref = FirebaseDatabase.instance.ref(
+          "users/$therapistId/patients/${widget.userId}/trainingPlans/$activePlanId/videos");
 
       final dataSnapshot = await ref.once();
       final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
@@ -119,11 +164,10 @@ class _GameScreenState extends State<GameScreen> {
           _videoList = videoList;
         });
       } else {
-        throw Exception("No exercises found");
+        throw Exception("No exercises found in the active plan");
       }
     } catch (e) {
-      //_showErrorDialog(
-      // 'fetching videos: $e/n/Your Therapist Hasnt Uploaded Any Videos Yet');
+      print('Error fetching videos: $e');
     }
   }
 
@@ -285,26 +329,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('No Videos Yet!'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -345,62 +369,66 @@ class _GameScreenState extends State<GameScreen> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 10.0,
-                  crossAxisSpacing: 10.0,
-                  childAspectRatio: cardWidth / cardHeight,
-                ),
-                itemCount: icons.length,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: () {
-                      if (!flip) {
-                        flipCard(index);
-                      }
-                    },
-                    child: FlipCard(
-                      key: cardStateKeys[index],
-                      flipOnTouch: false,
-                      direction: FlipDirection.HORIZONTAL,
-                      front: Container(
-                        width: cardWidth,
-                        height: cardHeight,
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '?',
-                            style: TextStyle(
-                              fontSize: 32.0,
-                              color: Colors.white,
+              child: isLoading
+                  ? Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 10.0,
+                        crossAxisSpacing: 10.0,
+                        childAspectRatio: cardWidth / cardHeight,
+                      ),
+                      itemCount: icons.length,
+                      itemBuilder: (context, index) {
+                        return GestureDetector(
+                          onTap: () {
+                            if (!flip) {
+                              flipCard(index);
+                            }
+                          },
+                          child: FlipCard(
+                            key: cardStateKeys[index],
+                            flipOnTouch: false,
+                            direction: FlipDirection.HORIZONTAL,
+                            front: Container(
+                              width: cardWidth,
+                              height: cardHeight,
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  '?',
+                                  style: TextStyle(
+                                    fontSize: 32.0,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            back: Container(
+                              width: cardWidth,
+                              height: cardHeight,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  icons[index],
+                                  style: const TextStyle(
+                                    fontSize: 45,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      back: Container(
-                        width: cardWidth,
-                        height: cardHeight,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Center(
-                          child: Text(
-                            icons[index],
-                            style: const TextStyle(
-                              fontSize: 45,
-                            ),
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
         ],
