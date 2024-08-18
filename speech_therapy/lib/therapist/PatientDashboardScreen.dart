@@ -410,6 +410,163 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
+  void _showEditDialogPtDetails(BuildContext context) {
+    String firstName = _patientData['firstName'];
+    String lastName = _patientData['lastName'];
+    int age = _patientData['age'];
+    String gender = _patientData['gender'];
+
+    final firstNameController = TextEditingController(text: firstName);
+    final lastNameController = TextEditingController(text: lastName);
+    final ageController = TextEditingController(text: age.toString());
+
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit Patient Details'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: firstNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'First Name',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a valid first name';
+                          }
+                          if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
+                            return 'Please enter a valid first name';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            firstName = value;
+                          });
+                        },
+                      ),
+                      TextFormField(
+                        controller: lastNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Last Name',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a valid last name';
+                          }
+                          if (!RegExp(r'^[a-zA-Z]+$').hasMatch(value)) {
+                            return 'Please enter a valid last name';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            lastName = value;
+                          });
+                        },
+                      ),
+                      TextFormField(
+                        controller: ageController,
+                        decoration: const InputDecoration(
+                          labelText: 'Age',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a valid age';
+                          }
+                          int? age = int.tryParse(value);
+                          if (age == null || age < 1 || age > 150) {
+                            return 'Please enter a valid age';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            age = int.tryParse(value) ?? 0;
+                          });
+                        },
+                      ),
+                      DropdownButtonFormField<String>(
+                        value: gender,
+                        decoration: const InputDecoration(
+                          labelText: 'Gender',
+                        ),
+                        items: ['Male', 'Female']
+                            .map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            gender = newValue!;
+                          });
+                        },
+                      )
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      // Update the patient details in the database
+                      final DatabaseReference ref = FirebaseDatabase.instance
+                          .ref()
+                          .child('users')
+                          .child(widget.userId)
+                          .child('patients')
+                          .child(widget.patientKey);
+
+                      ref.update({
+                        'firstName': firstName,
+                        'lastName': lastName,
+                        'age': age,
+                        'gender': gender,
+                      }).then((_) {
+                        debugPrint('Patient details updated successfully');
+                        setState(() {
+                          // Update local state
+                          _patientData['firstName'] = firstName;
+                          _patientData['lastName'] = lastName;
+                          _patientData['age'] = age;
+                          _patientData['gender'] = gender;
+                        });
+                        // Dismiss the dialog
+                        Navigator.of(context).pop();
+                      }).catchError((error) {
+                        debugPrint('Error updating patient details: $error');
+                      });
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    // Dismiss the dialog without updating
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -438,8 +595,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                             children: [
                               ElevatedButton(
                                 onPressed: () {
-                                  _showEditDialog(context, '',
-                                      ''); // Empty values for patient details edit dialog
+                                  _showEditDialogPtDetails(context);
                                 },
                                 child: const Text('Edit Patient Details'),
                               ),
