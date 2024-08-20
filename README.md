@@ -1,52 +1,23 @@
-### Project Overview
 
-This project marked the conclusion of my degree in Software Engineering at Azirali. The application aims to be a therapeutic tool, teaching children how to speak clearly while having fun through the use of sound analysis, speech recognition, and gamification.
+# Gamified Speech Therapy System
 
-### Development Tasks
+## Overview
 
-1. **User Authentication**:
-   - [x] Develop the basic Flutter application structure.
-   - [x] Implement therapist and child user interfaces.
-   - [x] Integrate Firebase for data storage.
-   - [x] Implement user registration and login functionality.
-   - [x] Implement password reset functionality.
-   - [x] Define user roles (e.g., therapist, child) and permissions.
+This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises(built And Managed By The Child's Therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic approach to speech therapy.
 
-2. **User Profile Management**:
-   - [ ] Implement user profile creation and editing.
-   - [ ] Enable profile customization options (e.g., preferred language, theme selection).
+## Features
 
-3. **Therapy Session Management**:
-   - [ ] Implement therapy session scheduling.
-   - [ ] Allow therapy session rescheduling and cancellation.
-   - [ ] Develop therapy session history and progress tracking.
-   - [ ] Integrate calendar functionality for easy appointment scheduling.
+- **Gamified Exercises**: Engaging speech therapy exercises designed to improve children's speech skills in a fun and interactive way.
+- **Speech Recognition & Phonetic Analysis**: Analyzes children's pronunciation to provide accurate feedback and track progress.
+- **Gemini AI Integration**: Offers personalized encouragement and tips based on the child’s performance.
+- **Real-time Progress Tracking**: Provides insights and detailed reports for parents and therapists to monitor and guide the therapy process.
+- **Cross-Platform Support**: Built with Flutter to ensure compatibility with iOS, Android, and Web.
 
-4. **Speech Recognition Enhancement**:
-   - [ ] Implement custom speech models for better recognition accuracy.
-   - [ ] Provide real-time feedback based on speech recognition results.
-   - [x] Enable speech recognition for multiple languages/dialects.
+## Technology Stack
 
-5. **Gamification Elements**:
-   - [ ] Implement game levels or stages.
-   - [ ] Develop a game scoring system.
-   - [ ] Include game achievements or rewards.
-   - [ ] Integrate game leaderboards.
-   - [ ] Incorporate sound analysis for interactive gameplay.
-   - [ ] Design engaging visual and auditory feedback for game interactions.
+- **Flutter**: Cross-platform framework used to build the mobile and web applications.
+- **Google Cloud Functions**: Backend services for processing speech recognition, phonetic analysis, and AI-driven feedback.
+- **Firebase**: Used for real-time database management, authentication, and hosting.
+- **Gemini AI**: Integrated for delivering personalized feedback based on speech analysis.
 
-6. **App Customization**:
-   - [ ] Implement theme selection (e.g., light mode, dark mode).
-   - [ ] Provide language selection options.
-   - [ ] Allow users to personalize app settings and preferences.
-
-7. **App Performance Optimization**:
-   - [ ] Optimize the app's startup time.
-   - [ ] Optimize memory usage.
-   - [ ] Optimize battery usage.
-   - [ ] Conduct performance testing on various devices and screen sizes.
-
-8. **App Security Enhancement**:
-   - [x] Implement data encryption for sensitive data.
-   - [x] Ensure secure communication protocols (e.g., HTTPS) with the backend server.
-   - [ ] Regularly update security measures to address potential vulnerabilities.
+For more information, feel free to contact us at [mousatams@hotmail.com].
