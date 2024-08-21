@@ -1,6 +1,11 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_therapy/child/childHomePage.dart';
+import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
+import 'package:speech_therapy/googleCloudAPIs/gemini_api.dart';
+import 'package:speech_therapy/googleCloudAPIs/gemini_chat_api.dart';
+import 'package:speech_therapy/googleCloudAPIs/text_to_speech_api.dart';
+import 'package:speech_therapy/speech_service.dart';
 import 'ResetPasswordPage.dart';
 import 'therapist/therapist_home_page.dart'; // Import the therapist homepage file
 import 'registrationPage.dart'; // Import the registration page file
@@ -16,7 +21,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  //
+  // Initialize the SpeechService singleton
+  await SpeechService().initialize();
   runApp(const MyApp());
 }
 
@@ -68,6 +74,33 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> jumpStartCloudAPIs() async {
+    try {
+      // Call GeminiEncouragement API with a dummy message
+      final geminiResponse = GeminiAPI().getEncouragement(
+        "Dummy therapist message for encouragement.",
+      );
+      print('Gemini API Response: $geminiResponse');
+
+      // Call TextToSpeech API with a dummy message
+      final textToSpeechResponse = TextToSpeechAPI().getSpeechAudio(
+        "This is a dummy message for Text to Speech.",
+      );
+      print('Text to Speech API Response Length: ${textToSpeechResponse}');
+
+      // Call WordsToIPA API with a dummy message
+      final ipaResponse = G2PAPI().getIPA(
+        "Dummy word for IPA transcription.",
+      );
+      print('WordsToIPA API Response: $ipaResponse');
+      final ChatResponse = GeminiChatAPI()
+          .getChatResponse("This is a dummy message for Text to Speech.", "1");
+      print('Gemini Chat API Response: $ChatResponse');
+    } catch (e) {
+      print('Error during API jumpstart: $e');
+    }
+  }
+
   void _login() async {
     setState(() {
       _isLoading = true;
@@ -79,6 +112,7 @@ class _LoginPageState extends State<LoginPage> {
         email: _usernameController.text,
         password: _passwordController.text,
       );
+      jumpStartCloudAPIs();
 
       // If login is successful, navigate to the relevant user homepage
       // Extract user ID

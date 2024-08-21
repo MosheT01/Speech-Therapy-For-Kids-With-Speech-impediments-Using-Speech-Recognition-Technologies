@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:rive/rive.dart';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
+import 'package:rive/rive.dart';
 import 'package:speech_therapy/googleCloudAPIs/g2p_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/gemini_api.dart';
 import 'package:speech_therapy/googleCloudAPIs/text_to_speech_api.dart';
+import 'package:speech_therapy/speech_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -45,11 +49,38 @@ class VideoPlaybackPage extends StatefulWidget {
   _VideoPlaybackPageState createState() => _VideoPlaybackPageState();
 }
 
+class Attempt {
+  final String recognizedWord;
+  final double grade;
+  final bool success;
+
+  Attempt({
+    required this.recognizedWord,
+    required this.grade,
+    required this.success,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'recognizedWord': recognizedWord,
+      'grade': grade,
+      'success': success,
+    };
+  }
+
+  static Attempt fromJson(Map<String, dynamic> json) {
+    return Attempt(
+      recognizedWord: json['recognizedWord'] as String,
+      grade: json['grade'] as double,
+      success: json['success'] as bool,
+    );
+  }
+}
+
 class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     with SingleTickerProviderStateMixin {
   late VideoPlayerController _controller;
   late ChewieController _chewieController;
-  late stt.SpeechToText _speech;
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isListening = false;
   bool _isLoading = true;
@@ -58,7 +89,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   bool _showCelebration = false;
   bool aboveSimilarityThreshhold = false;
   bool _useIPA = true;
-  bool micToggle = false;
   late AnimationController _micAnimationController;
   late Animation<double> _micAnimation;
   late RiveAnimationController _riveController;
@@ -67,20 +97,44 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   SMIInput<bool>? _checkInput;
   SMIInput<bool>? _successInput;
   SMIInput<bool>? _failInput;
-
   late Map<String, dynamic> patientData;
+  final stt.SpeechToText _speech =
+      SpeechService().speech; // Access the singleton
+
+  // Use the current timestamp as the session ID
+  String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+  DateTime startTime = DateTime.now();
+
+  final List<Attempt> _attempts = [];
+
+  late List<String> encouragementMessages;
+
+  num similarityThreshhold = 0.80;
+
+  String? activePlanId;
+  bool _isMicButtonLocked = false;
+  bool _isProcessingRecognition = false;
 
   @override
   void initState() {
     super.initState();
     _initializeVideoPlayer();
-    _initializeSpeechToText();
     fetchPatientData();
+    // Determine the active plan before proceeding with other initializations
+    determineActivePlan(widget.therapistID, widget.userId).then((_) {
+      if (activePlanId != null) {
+        // Now that the active plan is determined, you can safely initialize other components
+        fetchPatientData();
+      } else {
+        // Handle the case where no active plan is found
+        print('No active plan found for this user.');
+      }
+    });
     _riveController = SimpleAnimation('idle'); // Initial animation state
     _micAnimationController =
         AnimationController(vsync: this, duration: const Duration(seconds: 1));
     _micAnimation =
-        Tween<double>(begin: 1.0, end: 1.5).animate(_micAnimationController)
+        Tween<double>(begin: 1, end: 1.25).animate(_micAnimationController)
           ..addStatusListener((status) {
             if (status == AnimationStatus.completed) {
               _micAnimationController.reverse();
@@ -88,6 +142,52 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
               _micAnimationController.forward();
             }
           });
+
+    SpeechService().setStatusCallback((status) async {
+      print("Status: $status");
+      if ((status.contains('done') || status.contains('notListening'))) {
+        await _speech.stop();
+        await Future.delayed(Duration(seconds: 1));
+        _stopListening();
+      }
+    });
+
+    SpeechService().setErrorCallback((error) async {
+      print("Error: $error");
+      await _speech.stop();
+      await Future.delayed(Duration(seconds: 1));
+      _stopListening();
+    });
+  }
+
+  Future<void> determineActivePlan(String therapistId, String userId) async {
+    try {
+      DatabaseReference plansRef = FirebaseDatabase.instance
+          .ref("users/$therapistId/patients/$userId/trainingPlans");
+
+      final snapshot = await plansRef.once();
+
+      if (snapshot.snapshot.exists) {
+        Map<dynamic, dynamic> plans =
+            snapshot.snapshot.value as Map<dynamic, dynamic>;
+
+        // Find the active plan
+        for (var plan in plans.entries) {
+          if (plan.value['active'] == true) {
+            activePlanId = plan.key;
+            break;
+          }
+        }
+      }
+
+      if (activePlanId == null) {
+        print("No active plan found.");
+      } else {
+        print("Active plan ID: $activePlanId");
+      }
+    } catch (e) {
+      print('Error determining active plan: $e');
+    }
   }
 
   void _onRiveInit(Artboard artboard) {
@@ -104,12 +204,8 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   void _triggerRiveState(String state) {
-    // Ensure that the state machine responds immediately
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true;
-    _riveController.isActive = false; // Deactivate to reset the state machine
-    _riveController.isActive = true;
-    _resetRiveInputs();
+    _resetRiveInputs(); // Reset all inputs before setting a new one
+
     switch (state) {
       case 'Talk':
         _talkInput?.value = true;
@@ -127,7 +223,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         _riveController.isActive = true; // Default to 'idle'
     }
 
-    // Ensure that the state machine responds immediately
     _riveController.isActive = false; // Deactivate to reset the state machine
     _riveController.isActive = true; // Reactivate to start the new state
   }
@@ -170,7 +265,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         allowPlaybackSpeedChanging:
             !_isListening, // Disable controls when mic is active
         allowFullScreen: !_isListening,
-        showControls: !_isListening,
+        showControls: !_isListening && !_isPlaying,
         allowMuting: false,
       );
 
@@ -178,7 +273,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
         _isLoading = false;
       });
 
-      // Listen to the video playing state
       _controller.addListener(() {
         setState(() {
           _isPlaying = _controller.value.isPlaying;
@@ -195,10 +289,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     }
   }
 
-  void _initializeSpeechToText() {
-    _speech = stt.SpeechToText();
-  }
-
   @override
   void dispose() {
     _controller.dispose();
@@ -210,70 +300,68 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
   }
 
   Future<void> _toggleListening() async {
+    if (_isMicButtonLocked || !_speech.isAvailable || _isPlaying) {
+      return;
+    }
+    _isMicButtonLocked = true; // Lock the button
+
     if (_isListening) {
       await _stopListening();
     } else {
       await _startListening();
     }
+
+    _isMicButtonLocked = false; // Unlock the button after the operation
   }
 
   Future<void> _startListening() async {
-    if (_isPlaying) {
+    if (_isPlaying || !_speech.isAvailable) {
+      print("Cannot start listening.");
       return;
     }
-    bool available = await _speech.initialize(
-      onStatus: (val) {
-        if (val == 'done' || val == 'notListening') {
-          _toggleListening();
-        }
-        print(val);
-      },
-      onError: (val) {
-        print('onError: $val');
+
+    setState(() => _isListening = true);
+    _triggerRiveState('Hear');
+    _micAnimationController.forward();
+    _chewieController.setVolume(0);
+    _controller.pause();
+
+    _speech.listen(
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+      ),
+      pauseFor: kIsWeb ? const Duration(seconds: 3) : null,
+      onResult: (val) {
         setState(() {
-          _toggleListening();
+          _recognizedText = val.recognizedWords;
         });
       },
+      localeId: 'en_US',
     );
-
-    if (available) {
-      setState(() => _isListening = true);
-      _triggerRiveState('Hear'); // Trigger Rive state to 'Hear'
-      _micAnimationController.forward();
-      _chewieController.setVolume(0); // Mute the video while listening
-      _controller.pause(); // Pause the video while listening
-      _speech.listen(
-        listenOptions: stt.SpeechListenOptions(partialResults: true),
-        onResult: (val) {
-          setState(() {
-            _recognizedText = val.recognizedWords;
-          });
-        },
-        localeId: 'en_US',
-      );
-    }
   }
 
   Future<void> _stopListening() async {
     if (_isListening) {
-      await _speech.stop();
       setState(() {
         _isListening = false;
-        _triggerRiveState('idle'); // Reset Rive state to 'idle'
+        _triggerRiveState('idle');
       });
       _micAnimationController.stop();
-      _chewieController.setVolume(1); // Unmute the video when done listening
-      if (_recognizedText.isNotEmpty) {
-        setState(() {
-          _isPlaying = true;
-        });
+      _chewieController.setVolume(1);
+
+      if (_recognizedText.isNotEmpty && !_isProcessingRecognition) {
+        _isProcessingRecognition = true; // Lock processing
         await _evaluateSpeech(_recognizedText);
-        _recognizedText = '';
+        _isProcessingRecognition = false; // Unlock processing
+        await Future.delayed(const Duration(seconds: 1));
+        setState(() {
+          _recognizedText = '';
+        });
       }
     }
   }
 
-//fetch patient data from the database
   Future<void> fetchPatientData() async {
     DatabaseReference ref = FirebaseDatabase.instance
         .ref("users")
@@ -293,87 +381,156 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     } catch (e) {
       debugPrint('Error fetching patient data: $e');
     }
+    encouragementMessages = [
+      "Great work, ${patientData['firstName']}!",
+      "Well done, ${patientData['firstName']}!",
+      "You nailed it, ${patientData['firstName']}!",
+      "Awesome job, ${patientData['firstName']}!",
+      "Fantastic, ${patientData['firstName']}!",
+      "You're amazing, ${patientData['firstName']}!",
+      "Keep it up, ${patientData['firstName']}!",
+      "You're a star, ${patientData['firstName']}!",
+      "Brilliant, ${patientData['firstName']}!",
+      "Superb effort, ${patientData['firstName']}!",
+      "You did it, ${patientData['firstName']}!",
+      "Excellent, ${patientData['firstName']}!",
+      "You're unstoppable, ${patientData['firstName']}!",
+      "Impressive, ${patientData['firstName']}!",
+      "Outstanding, ${patientData['firstName']}!",
+      "You're doing great, ${patientData['firstName']}!",
+      "Way to go, ${patientData['firstName']}!",
+      "You're a champ, ${patientData['firstName']}!",
+      "You rock, ${patientData['firstName']}!",
+      "Great job, ${patientData['firstName']}!"
+    ];
   }
 
   Future<void> _evaluateSpeech(String recognizedText) async {
+    setState(() {
+      _isPlaying = true;
+    });
+
     String recognizedTextLower = recognizedText.toLowerCase();
     String videoTitleLower = widget.videoTitle.toLowerCase();
 
     String g2pExpected = videoTitleLower;
     String g2pRecognized = recognizedTextLower;
 
-    if (_useIPA) {
-      String combinedText = '$videoTitleLower,$recognizedTextLower';
-      String combinedIPA;
+    if (_useIPA && !recognizedTextLower.contains(videoTitleLower)) {
       try {
-        combinedIPA = await G2PAPI().getIPA(combinedText);
+        g2pExpected = await G2PAPI().getIPA(videoTitleLower);
+        g2pRecognized = await G2PAPI().getIPA(recognizedTextLower);
       } catch (e) {
-        combinedIPA = '';
+        g2pExpected = videoTitleLower;
+        g2pRecognized = recognizedTextLower;
       }
 
-      List<String> ipaList = combinedIPA.split(',');
-
-      g2pExpected = ipaList.isNotEmpty &&
-              !ipaList[0].isEmpty &&
-              !ipaList[0].toLowerCase().contains('nan')
-          ? ipaList[0]
-          : videoTitleLower;
-      g2pRecognized = ipaList.length > 1 &&
-              !ipaList[1].isEmpty &&
-              !ipaList[1].toLowerCase().contains('nan')
-          ? ipaList[1]
-          : recognizedTextLower;
+      if (g2pExpected.isEmpty) g2pExpected = videoTitleLower;
+      if (g2pRecognized.isEmpty) g2pRecognized = recognizedTextLower;
     }
 
-    print('Expected: $g2pExpected');
-    print('Recognized: $g2pRecognized');
     double similarity = _calculateSimilarity(g2pExpected, g2pRecognized);
-    aboveSimilarityThreshhold = similarity >= 0.80;
-    int grade = (similarity * 100).toInt();
+    aboveSimilarityThreshhold = similarity >= similarityThreshhold;
 
-    _updateDatabase(true, grade);
-    //_showCelebrationAnimation();
-    // Use Gemini and Text-to-Speech APIs
-    try {
-      String encouragement = await GeminiAPI().getEncouragement(
-          "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success:'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
-      await _playAudio(encouragement, success: aboveSimilarityThreshhold);
-    } catch (e) {
-      print("error in gemini api $e");
-      String errorMessage = "Try again, I didn't catch that.";
-      await _playAudio(errorMessage, success: false);
+    int grade = (similarity * 100).toInt();
+    if (recognizedTextLower.contains(videoTitleLower)) {
+      aboveSimilarityThreshhold = true;
+      grade = 95;
+    }
+
+    _attempts.add(Attempt(
+      recognizedWord: recognizedText,
+      grade: grade.toDouble(),
+      success: aboveSimilarityThreshhold,
+    ));
+
+    if (aboveSimilarityThreshhold) {
+      _playCelebrationAnimation();
+      await _playFeedbackSound('win.wav', success: true);
+      String randomEncouragement =
+          encouragementMessages[Random().nextInt(encouragementMessages.length)];
+      await _playAudio(randomEncouragement);
+      _updateOverallGradeAndSessionMetrics(widget.videoKey, "success");
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    } else if (_attempts.length >= 3) {
+      await _playFeedbackSound('lose.wav', success: false);
+      String encouragement = "It's okay! You can get it next time!";
+      await _playAudio(encouragement);
+      _updateOverallGradeAndSessionMetrics(widget.videoKey, "failed");
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    } else {
+      await _playFeedbackSound('lose.wav', success: false);
+      try {
+        String encouragement = await GeminiAPI().getEncouragement(
+            "Therapist Said: '$videoTitleLower' , Child Said: '$recognizedTextLower' , Grade By Therapist: '$grade%', success(exercise passed we go to the next level):'$aboveSimilarityThreshhold', child name: ${patientData['firstName']}");
+        await _playAudio(encouragement);
+      } catch (e) {
+        String errorMessage = "Try again, I didn't catch that.";
+        await _playAudio(errorMessage);
+      }
+      setState(() {
+        _isPlaying = false;
+      });
     }
   }
 
-  Future<void> _playAudio(String text, {required bool success}) async {
+  void _playCelebrationAnimation() async {
+    setState(() {
+      _showCelebration = true;
+    });
+    await _audioPlayer.play(AssetSource('woo-hoo.mp3'));
+
+    await Future.delayed(const Duration(seconds: 1));
+    setState(() {
+      _showCelebration = false;
+    });
+  }
+
+  Future<void> _playFeedbackSound(String soundFilePath,
+      {required bool success}) async {
     try {
-      setState(() {
-        _isPlaying = true;
-      });
+      await Future.delayed(const Duration(milliseconds: 1500));
       setState(() {
         _triggerRiveState(
             success ? 'success' : 'fail'); // Trigger success or fail state
       });
+      _audioPlayer.play(AssetSource(soundFilePath));
+    } catch (e) {
+      _showErrorDialog('Error playing sound: $e');
+    }
+  }
 
+  Future<void> _playAudio(String text) async {
+    try {
       String audioContent = await TextToSpeechAPI().getSpeechAudio(text);
       final bytes = base64Decode(audioContent);
       setState(() {
-        _triggerRiveState('Talk'); // Trigger Rive state to 'Talk'
+        _triggerRiveState('Talk');
       });
-      await _audioPlayer.play(BytesSource(bytes));
 
-      // Wait until the audio finishes playing
+      final completer = Completer<void>();
+
       _audioPlayer.onPlayerComplete.listen((event) {
         setState(() {
-          _isPlaying = false;
-          _triggerRiveState('idle'); // Reset Rive state to 'idle' after audio
+          _triggerRiveState('idle');
         });
+        completer.complete();
       });
-    } catch (e) {
-      _showErrorDialog('Error playing audio: $e');
+
+      await _audioPlayer.play(BytesSource(bytes));
+      await completer.future;
+
       setState(() {
         _isPlaying = false;
-        _triggerRiveState('idle'); // Reset Rive state to 'idle' on error
+      });
+    } catch (e) {
+      print('Error playing audio: $e');
+      setState(() {
+        _triggerRiveState('idle');
       });
     }
   }
@@ -383,7 +540,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     double maxLen =
         s1.length > s2.length ? s1.length.toDouble() : s2.length.toDouble();
     double similarity = 1.0 - (editDistance / maxLen);
-    print(similarity.toStringAsFixed(2));
     return similarity;
   }
 
@@ -412,22 +568,199 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     return a < b ? (a < c ? a : c) : (b < c ? b : c);
   }
 
-  void _updateDatabase(bool completed, int grade) {
-    DatabaseReference databaseReference = FirebaseDatabase.instance.ref(
-        'users/${widget.therapistID}/patients/${widget.userId}/videos/${widget.videoKey}');
-    databaseReference.update({
-      'status': completed ? 'childAttempted' : 'childDidNotAttempt',
-      'grade': grade,
-    }).catchError((error) {
+  Future<void> _updateOverallGradeAndSessionMetrics(
+      String videoId, String status) async {
+    try {
+      int sessionTotalGrade =
+          _attempts.fold(0, (sum, attempt) => sum + attempt.grade.toInt());
+      int sessionAverageGrade =
+          _attempts.isNotEmpty ? sessionTotalGrade ~/ _attempts.length : 0;
+
+      int sessionTimeSpent = _totalTimeSpent.inSeconds;
+
+      int sessionSuccessfulAttempts =
+          _attempts.where((attempt) => attempt.success).length;
+      int sessionTotalAttempts = _attempts.length;
+
+      DatabaseReference sessionRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions/$sessionId');
+
+      final sessionMetrics = {
+        'attempts': _attempts.map((attempt) => attempt.toJson()).toList(),
+        'successfulAttempts': sessionSuccessfulAttempts,
+        'totalAttempts': sessionTotalAttempts,
+        'timeSpentInSession': sessionTimeSpent,
+        'status': status,
+        'sessionAverageGrade': sessionAverageGrade,
+      };
+
+      await sessionRef.set(sessionMetrics);
+
+      int overallGrade = await _calculateAndUpdateOverallGrade(videoId);
+      int overallSessionTime = await _calculateAverageSessionTime(videoId);
+      int totalSuccessfulAttempts =
+          await _calculateTotalSuccessfulAttempts(videoId);
+      int totalAttempts = await _calculateTotalAttempts(videoId);
+
+      String overallStatus = overallGrade >= 50 ? 'success' : 'failed';
+
+      DatabaseReference videoRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId');
+
+      await videoRef.update({
+        'status': overallStatus,
+        'overallGrade': overallGrade,
+        'averageSessionTime': overallSessionTime,
+        'totalSuccessfulAttempts': totalSuccessfulAttempts,
+        'totalAttempts': totalAttempts,
+      });
+    } catch (e) {
+      print('Error updating session metrics: $e');
       Fluttertoast.showToast(
-          msg: "Failed to update database: $error",
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0);
-    });
+        msg: "Failed to update database: $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
+  }
+
+  Future<int> _calculateTotalSuccessfulAttempts(String videoId) async {
+    try {
+      int totalSuccessfulAttempts = 0;
+
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        for (var sessionData in sessions.values) {
+          int sessionSuccessfulAttempts =
+              sessionData['successfulAttempts'] ?? 0;
+          totalSuccessfulAttempts += sessionSuccessfulAttempts;
+        }
+      }
+
+      return totalSuccessfulAttempts;
+    } catch (e) {
+      print('Error calculating total successful attempts: $e');
+      return 0;
+    }
+  }
+
+  Future<int> _calculateTotalAttempts(String videoId) async {
+    try {
+      int totalAttempts = 0;
+
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        for (var sessionData in sessions.values) {
+          int sessionTotalAttempts = sessionData['totalAttempts'] ?? 0;
+          totalAttempts += sessionTotalAttempts;
+        }
+      }
+
+      return totalAttempts;
+    } catch (e) {
+      print('Error calculating total attempts: $e');
+      return 0;
+    }
+  }
+
+  Future<int> _calculateAndUpdateOverallGrade(String videoId) async {
+    try {
+      int totalGrade = 0;
+      int totalAttemptCount = 0;
+
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        for (var sessionData in sessions.values) {
+          if (sessionData['attempts'] != null) {
+            List<dynamic> attempts = sessionData['attempts'];
+            for (var attempt in attempts) {
+              int attemptGrade = (attempt['grade'] ?? 0).toInt();
+              totalGrade += attemptGrade;
+              totalAttemptCount++;
+            }
+          }
+        }
+      }
+
+      int overallGrade =
+          totalAttemptCount > 0 ? totalGrade ~/ totalAttemptCount : 0;
+
+      DatabaseReference videoRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId');
+
+      await videoRef.update({
+        'overallGrade': overallGrade,
+      });
+
+      return overallGrade;
+    } catch (e) {
+      print('Error calculating overall grade: $e');
+      Fluttertoast.showToast(
+        msg: "Failed to calculate overall grade: $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+      return 0;
+    }
+  }
+
+  Duration get _totalTimeSpent => DateTime.now().difference(startTime);
+
+  Future<int> _calculateAverageSessionTime(String videoId) async {
+    try {
+      int totalTimeSpent = 0;
+      int sessionCount = 0;
+
+      DatabaseReference sessionsRef = FirebaseDatabase.instance.ref(
+          'users/${widget.therapistID}/patients/${widget.userId}/trainingPlans/$activePlanId/videos/$videoId/sessions');
+
+      DataSnapshot snapshot = await sessionsRef.get();
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> sessions =
+            snapshot.value as Map<dynamic, dynamic>;
+
+        for (var sessionData in sessions.values) {
+          int sessionTime = sessionData['timeSpentInSession'] ?? 0;
+          totalTimeSpent += sessionTime;
+          sessionCount++;
+        }
+      }
+
+      return sessionCount > 0 ? totalTimeSpent ~/ sessionCount : 0;
+    } catch (e) {
+      print('Error calculating average session time: $e');
+      return 0;
+    }
   }
 
   void _showErrorDialog(String message) {
@@ -450,17 +783,6 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
     );
   }
 
-  void _showCelebrationAnimation() {
-    setState(() {
-      _showCelebration = true;
-    });
-    Future.delayed(const Duration(seconds: 3), () {
-      setState(() {
-        _showCelebration = false;
-      });
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -477,56 +799,43 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
           ),
         ],
       ),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.5,
-                        height: MediaQuery.of(context).size.height * 0.5,
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: Chewie(controller: _chewieController),
-                        ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: AspectRatio(
+                        aspectRatio: _controller.value.aspectRatio,
+                        child: Chewie(controller: _chewieController),
                       ),
-                      Column(
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 10),
                           const Text(
                             'What Did You Hear?',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                fontSize: 24, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 10),
-                          Positioned(
-                            bottom: 100,
-                            right: 10,
-                            child: SizedBox(
-                              height: 200,
-                              width: 200,
-                              child: RiveAnimation.asset(
-                                'assets/wave,_hear_and_talk.riv',
-                                controllers: [_riveController],
-                                fit: BoxFit.contain,
-                                onInit: _onRiveInit,
-                              ),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(height: 10),
                           if (_recognizedText.isEmpty)
-                            Text(
+                            const Text(
                               'Please speak into the microphone to start the exercise',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.bold),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           if (_recognizedText.isNotEmpty)
                             Padding(
@@ -540,64 +849,68 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage>
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: _isPlaying ? null : _toggleListening,
-                            child: ScaleTransition(
-                              scale: _micAnimation,
-                              child: Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _isPlaying
-                                      ? Colors.grey
-                                      : _isListening
-                                          ? Colors.redAccent
-                                          : Colors.blue,
-                                ),
-                                child: Icon(
-                                  _isListening ? Icons.mic : Icons.mic_none,
-                                  color: Colors.white,
-                                  size: 40,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: GestureDetector(
+                                  onTap: _isPlaying ? null : _toggleListening,
+                                  child: ScaleTransition(
+                                    scale: _micAnimation,
+                                    child: Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _isPlaying
+                                            ? Colors.grey
+                                            : _isListening
+                                                ? Colors.redAccent
+                                                : Colors.blue,
+                                      ),
+                                      child: Icon(
+                                        _isListening
+                                            ? Icons.mic
+                                            : Icons.mic_none,
+                                        color: Colors.white,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          if (_recognizedText.isNotEmpty)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                aboveSimilarityThreshhold
-                                    ? const Icon(Icons.check,
-                                        color: Colors.green, size: 30)
-                                    : const Icon(Icons.close,
-                                        color: Colors.red, size: 30),
-                                const SizedBox(width: 10),
-                                Text(
-                                  widget.videoTitle.toLowerCase(),
-                                  style: const TextStyle(fontSize: 20),
+                              const SizedBox(width: 20),
+                              Flexible(
+                                child: SizedBox(
+                                  height: 100,
+                                  width: 100,
+                                  child: RiveAnimation.asset(
+                                    'assets/wave,_hear_and_talk.riv',
+                                    controllers: [_riveController],
+                                    fit: BoxFit.contain,
+                                    onInit: _onRiveInit,
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-          if (_showCelebration)
-            const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check, color: Colors.green, size: 200),
-                  Text('Congratulations!', style: TextStyle(fontSize: 24)),
-                ],
-              ),
+                if (_showCelebration)
+                  Center(
+                    child: Lottie.asset(
+                      'assets/celebration.json',
+                      width: 1000,
+                      height: 1000,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 }

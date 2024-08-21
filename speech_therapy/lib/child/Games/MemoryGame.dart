@@ -1,6 +1,8 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
+import 'package:lottie/lottie.dart';
 import '../childExercise.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'dart:math';
@@ -68,28 +70,117 @@ class _GameScreenState extends State<GameScreen> {
   int moveCount = 0;
   int matchCount = 0;
   List<Map<String, dynamic>> _videoList = []; // Store fetched videos
+  String? activePlanId;
+  bool isLoading = true; // To handle loading state
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _showCelebration = false;
+
+  void _showCompletionDialog() async {
+    setState(() {
+      _showCelebration = true;
+    });
+
+    // Play the celebration sound
+    await _audioPlayer.play(AssetSource('woo-hoo.mp3'));
+
+    // Show the Lottie animation and play sound for a few seconds
+    await Future.delayed(const Duration(seconds: 3));
+
+    // Hide the celebration animation
+    setState(() {
+      _showCelebration = false;
+    });
+
+    // After the animation, start a new game
+    startNewGame();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
-    startNewGame();
-    _fetchAndCacheVideos(); // Start fetching and caching videos in the background
+    _initializeGame();
   }
 
-  Future<void> _fetchAndCacheVideos() async {
+  Future<void> _initializeGame() async {
+    setState(() {
+      isLoading = true;
+      icons.shuffle();
+      cardStateKeys =
+          List.generate(icons.length, (_) => GlobalKey<FlipCardState>());
+      cardFlipped = List.generate(icons.length, (_) => false);
+    });
+    await determineActivePlan(); // Fetch active plan
+    if (activePlanId != null) {
+      _fetchAndCacheVideos(); // Fetch and cache videos based on the active plan
+      startNewGame(); // Start the game after loading
+    } else {
+      // Handle the case where no active plan is found
+      print('No active plan found');
+    }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> determineActivePlan() async {
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      final userId = widget.userId;
-      final therapistId = await fetchTherapistIdFromChildId(userId);
+      final therapistId = await fetchTherapistIdFromChildId(widget.userId);
       if (therapistId == null) {
         throw Exception("Therapist ID not found");
       }
 
-      DatabaseReference ref = FirebaseDatabase.instance
-          .ref("users")
-          .child(therapistId)
-          .child("patients")
-          .child(userId)
-          .child("videos");
+      DatabaseReference plansRef = FirebaseDatabase.instance
+          .ref("users/$therapistId/patients/${widget.userId}/trainingPlans");
+
+      final snapshot = await plansRef.once();
+
+      if (snapshot.snapshot.exists) {
+        Map<dynamic, dynamic> plans =
+            snapshot.snapshot.value as Map<dynamic, dynamic>;
+
+        // Find the active plan
+        for (var plan in plans.entries) {
+          if (plan.value['active'] == true) {
+            activePlanId = plan.key;
+            break;
+          }
+        }
+      }
+
+      if (activePlanId == null) {
+        throw Exception("No active plan found");
+      }
+    } catch (e) {
+      print('Error determining active plan: $e');
+    }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> _fetchAndCacheVideos() async {
+    try {
+      if (activePlanId == null) {
+        throw Exception("Active plan ID not set");
+      }
+
+      final therapistId = await fetchTherapistIdFromChildId(widget.userId);
+      if (therapistId == null) {
+        throw Exception("Therapist ID not found");
+      }
+
+      DatabaseReference ref = FirebaseDatabase.instance.ref(
+          "users/$therapistId/patients/${widget.userId}/trainingPlans/$activePlanId/videos");
 
       final dataSnapshot = await ref.once();
       final values = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
@@ -106,11 +197,13 @@ class _GameScreenState extends State<GameScreen> {
           if (!kIsWeb) {
             String? videoUrl = videoData['downloadURL'];
             if (videoUrl != null) {
-              CustomCacheManager.instance
+              final file = await CustomCacheManager.instance
                   .downloadFile(videoUrl)
+                  // ignore: body_might_complete_normally_catch_error
                   .catchError((e) {
                 print('Error caching video: $e');
               });
+              print('Cached file path: ${file.file.path}');
             }
           }
         }
@@ -119,14 +212,17 @@ class _GameScreenState extends State<GameScreen> {
           _videoList = videoList;
         });
       } else {
-        throw Exception("No exercises found");
+        throw Exception("No exercises found in the active plan");
       }
     } catch (e) {
-      _showErrorDialog('Error fetching videos: $e');
+      print('Error fetching videos: $e');
     }
   }
 
   void startNewGame() {
+    setState(() {
+      isLoading = true;
+    });
     setState(() {
       // Reset game state variables
       previousIndex = -1;
@@ -136,9 +232,14 @@ class _GameScreenState extends State<GameScreen> {
 
       // Shuffle the icons and reset the card states
       icons.shuffle();
+
+      // Ensure cardStateKeys is the same length as icons
       cardStateKeys =
           List.generate(icons.length, (_) => GlobalKey<FlipCardState>());
       cardFlipped = List.generate(icons.length, (_) => false);
+    });
+    setState(() {
+      isLoading = false;
     });
   }
 
@@ -167,17 +268,32 @@ class _GameScreenState extends State<GameScreen> {
         });
       } else {
         await Future.delayed(const Duration(milliseconds: 300));
-        final randomExercise = _getRandomExercise();
-        final therapistId =
-            await fetchTherapistIdFromChildId(widget.userId) as String;
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                _navigateToVideoPlayback(randomExercise, therapistId),
-          ),
-        ).then((_) {
+        if (_videoList.isNotEmpty) {
+          final randomExercise = _getRandomExercise();
+          final therapistId =
+              await fetchTherapistIdFromChildId(widget.userId) as String;
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  _navigateToVideoPlayback(randomExercise, therapistId),
+            ),
+          ).then((_) {
+            setState(() {
+              cardFlipped[previousIndex] = true;
+              cardFlipped[index] = true;
+              matchCount++;
+              previousIndex = -1;
+              flip = false;
+              if (cardFlipped.every((t) => t)) {
+                _showCompletionDialog();
+              }
+            });
+          });
+        } else {
+          // No videos to navigate to, continue the game
           setState(() {
             cardFlipped[previousIndex] = true;
             cardFlipped[index] = true;
@@ -188,7 +304,7 @@ class _GameScreenState extends State<GameScreen> {
               _showCompletionDialog();
             }
           });
-        });
+        }
       }
     }
   }
@@ -247,48 +363,6 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _showCompletionDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Congratulations!'),
-          content: const Text('You matched all the icons!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                startNewGame();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Error'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -314,79 +388,95 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Moves: $moveCount'),
-                Text('Matches: $matchCount'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 10.0,
-                  crossAxisSpacing: 10.0,
-                  childAspectRatio: cardWidth / cardHeight,
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Moves: $moveCount'),
+                    Text('Matches: $matchCount'),
+                  ],
                 ),
-                itemCount: icons.length,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: () {
-                      if (!flip) {
-                        flipCard(index);
-                      }
-                    },
-                    child: FlipCard(
-                      key: cardStateKeys[index],
-                      flipOnTouch: false,
-                      direction: FlipDirection.HORIZONTAL,
-                      front: Container(
-                        width: cardWidth,
-                        height: cardHeight,
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '?',
-                            style: TextStyle(
-                              fontSize: 32.0,
-                              color: Colors.white,
-                            ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : GridView.builder(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            mainAxisSpacing: 10.0,
+                            crossAxisSpacing: 10.0,
+                            childAspectRatio: cardWidth / cardHeight,
                           ),
+                          itemCount: icons.length,
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () {
+                                if (!flip) {
+                                  flipCard(index);
+                                }
+                              },
+                              child: FlipCard(
+                                key: cardStateKeys[index],
+                                flipOnTouch: false,
+                                direction: FlipDirection.HORIZONTAL,
+                                front: Container(
+                                  width: cardWidth,
+                                  height: cardHeight,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      '?',
+                                      style: TextStyle(
+                                        fontSize: 32.0,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                back: Container(
+                                  width: cardWidth,
+                                  height: cardHeight,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      icons[index],
+                                      style: const TextStyle(
+                                        fontSize: 45,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                      back: Container(
-                        width: cardWidth,
-                        height: cardHeight,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Center(
-                          child: Text(
-                            icons[index],
-                            style: const TextStyle(
-                              fontSize: 32.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
+                ),
+              ),
+            ],
+          ),
+          if (_showCelebration)
+            Center(
+              child: Lottie.asset(
+                'assets/celebration.json', // Make sure to include your Lottie file in the assets folder
+                width: 500,
+                height: 500,
+                fit: BoxFit.cover,
               ),
             ),
-          ),
         ],
       ),
     );

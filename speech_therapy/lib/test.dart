@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       home: RiveAnimationTestPage(),
     );
   }
 }
 
 class RiveAnimationTestPage extends StatefulWidget {
+  const RiveAnimationTestPage({super.key});
+
   @override
   _RiveAnimationTestPageState createState() => _RiveAnimationTestPageState();
 }
@@ -91,7 +95,7 @@ class _RiveAnimationTestPageState extends State<RiveAnimationTestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rive Animation Test'),
+        title: const Text('Rive Animation Test'),
       ),
       body: Center(
         child: SizedBox(
@@ -108,30 +112,30 @@ class _RiveAnimationTestPageState extends State<RiveAnimationTestPage> {
         onPressed: () {
           _triggerState('idle');
         },
-        child: Icon(Icons.play_arrow),
+        child: const Icon(Icons.play_arrow),
       ),
       bottomNavigationBar: BottomAppBar(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             IconButton(
-              icon: Icon(Icons.record_voice_over),
+              icon: const Icon(Icons.record_voice_over),
               onPressed: () => _triggerState('Talk'),
             ),
             IconButton(
-              icon: Icon(Icons.hearing),
+              icon: const Icon(Icons.hearing),
               onPressed: () => _triggerState('Hear'),
             ),
             IconButton(
-              icon: Icon(Icons.check_circle),
+              icon: const Icon(Icons.check_circle),
               onPressed: () => _triggerState('Check'),
             ),
             IconButton(
-              icon: Icon(Icons.thumb_up),
+              icon: const Icon(Icons.thumb_up),
               onPressed: () => _triggerState('success'),
             ),
             IconButton(
-              icon: Icon(Icons.thumb_down),
+              icon: const Icon(Icons.thumb_down),
               onPressed: () => _triggerState('fail'),
             ),
           ],
