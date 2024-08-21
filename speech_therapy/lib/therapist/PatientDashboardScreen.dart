@@ -10,7 +10,6 @@ import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:speech_therapy/VideoPreviewScreen.dart';
 import 'Camera.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-//TODO DELETING PATIENT DOESNT DELTE PROPERLY IN STRORAGE
 
 class CustomCacheManager {
   static final CacheManager _cacheManager = CacheManager(
