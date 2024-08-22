@@ -32,9 +32,9 @@ This project is a comprehensive, cloud-based application designed to assist chil
 
 ## Project Poster
 
-<img src="./Poster PDF Final Project.jpeg" alt="Speech Therapy Process" width="1000"/>
+<img src="./Poster PDF Final Project.jpeg" alt="Speech Therapy App Poster" width="1000"/>
 
-- [Download Poster in High Resolution (PDF)](./POSTER%20PDF.pdf)
+- [View Poster in High Resolution (PDF)](./POSTER%20PDF.pdf)
 
 ## Simplified Use case Diagram 
 
