@@ -24,11 +24,11 @@ This project is a comprehensive, cloud-based application designed to assist chil
 
 ## Project Presentation Video
 
-[![Project Demo On Youtube!](https://img.youtube.com/vi/LhAOmmmKtj4/0.jpg)](https://www.youtube.com/watch?v=LhAOmmmKtj4)
+[![Project Demo On Youtube!(15 Minutes)](https://img.youtube.com/vi/LhAOmmmKtj4/0.jpg)](https://www.youtube.com/watch?v=LhAOmmmKtj4)
 
 ## Project DEMO Only
 
-[![Project Demo On Youtube!](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://www.youtube.com/watch?v=rUjPT7o85RQ&feature=youtu.be)
+[![Project Demo On Youtube!(5 Minutes)](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://www.youtube.com/watch?v=rUjPT7o85RQ&feature=youtu.be)
 
 ## Simplified Use case Diagram 
 
@@ -37,10 +37,11 @@ This project is a comprehensive, cloud-based application designed to assist chil
 ## Main Scoring Algorithim 
 <img src="Speech therapy steps png.png" alt="Speech Therapy Process" width="600"/>
 
-## Academic Report From Oldest To Newest
-- [Download Academic Paper (PDF)](./speech-therapy-proposal-moussa-tams-.pdf)
-- [Download Alpha Report (PDF)](./Alpha%20REPORT%20PDF%20FINAL.pdf)
-- [Download Final Project Report (PDF)](./Final%20Project%20Report.pdf)
+## Academic Report From Newest To Oldest
+- [View Final Project Report (PDF)](./Final%20Project%20Report.pdf)
+- [View Alpha Report (PDF)](./Alpha%20REPORT%20PDF%20FINAL.pdf)
+- [View Academic Paper (PDF)](./speech-therapy-proposal-moussa-tams-.pdf)
+
 
 
 
