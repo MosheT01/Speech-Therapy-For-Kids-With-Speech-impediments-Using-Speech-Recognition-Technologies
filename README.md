@@ -1,9 +1,11 @@
 
 # Gamified Speech Therapy System
 
+![Speech Therapy Process](./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram%20UPDATED%2018082024.png)
+
 ## Overview
 
-This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises(built And Managed By The Child's Therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic approach to speech therapy.
+This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises (built and managed by the child's therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic approach to speech therapy.
 
 ## Features
 
@@ -19,5 +21,15 @@ This project is a comprehensive, cloud-based application designed to assist chil
 - **Google Cloud Functions**: Backend services for processing speech recognition, phonetic analysis, and AI-driven feedback.
 - **Firebase**: Used for real-time database management, authentication, and hosting.
 - **Gemini AI**: Integrated for delivering personalized feedback based on speech analysis.
+
+## Project Demo Video
+
+[![Project Demo On Youtube!](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://youtu.be/rUjPT7o85RQ)
+
+## Resources
+
+- [Download Project Presentation (PPTX)](./פרויקט%20גמר%20-%20מוסא%20טמס%20FOR%20TEST.pptx)
+- [Download Alpha Report (PDF)](./Alpha%20REPORT%20PDF%20FINAL.pdf)
+- [Download Final Project Demo (MP4)](./FINAL%20PROJECT%20DEMO%20for%20test.mp4)
 
 For more information, feel free to contact us at [mousatams@hotmail.com].
