@@ -31,13 +31,9 @@ This project is a comprehensive, cloud-based application designed to assist chil
 <img src="./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram.jpeg" alt="Speech Therapy Process" width="600"/>
 
 ## Main Scoring Algorithim 
-<img src="./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram.png" alt="Speech Therapy Process" width="600"/>
+<img src="Speech therapy steps png.png" alt="Speech Therapy Process" width="600"/>
 
 
-## Resources
 
-- [Download Project Presentation (PPTX)](./פרויקט%20גמר%20-%20מוסא%20טמס%20FOR%20TEST.pptx)
-- [Download Alpha Report (PDF)](./Alpha%20REPORT%20PDF%20FINAL.pdf)
-- [Download Final Project Demo (MP4)](./FINAL%20PROJECT%20DEMO%20for%20test.mp4)
 
 For more information, feel free to contact us at [mousatams@hotmail.com].
