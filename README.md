@@ -37,6 +37,10 @@ This project is a comprehensive, cloud-based application designed to assist chil
 ## Main Scoring Algorithim 
 <img src="Speech therapy steps png.png" alt="Speech Therapy Process" width="600"/>
 
+## Academic Report From Oldest To Newest
+- [Download Academic Paper (PDF)](./speech-therapy-proposal-moussa-tams-.pdf)
+- [Download Alpha Report (PDF)](./Alpha%20REPORT%20PDF%20FINAL.pdf)
+- [Download Final Project Report (PDF)](./Final%20Project%20Report.pdf)
 
 
 
