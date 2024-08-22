@@ -1,11 +1,8 @@
-
 # Gamified Speech Therapy System
-
-
 
 ## Overview
 
-This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises (built and managed by the child's therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic approach to speech therapy.
+This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises (built and managed by the child's therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic appro...
 
 ## Features
 
@@ -32,23 +29,20 @@ This project is a comprehensive, cloud-based application designed to assist chil
 
 ## Project Poster
 
-<img src="./Poster PDF Final Project.jpeg" alt="Speech Therapy App Poster" width="1000"/>
+<img src="./Poster%20PDF%20Final%20Project.jpeg" alt="Speech Therapy App Poster" width="1000"/>
 
 - [View Poster in High Resolution (PDF)](./POSTER%20PDF.pdf)
 
-## Simplified Use case Diagram 
+## Simplified Use Case Diagram 
 
-<img src="./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram.jpeg" alt="Speech Therapy Process" width="600"/>
+<img src="./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram.jpeg" alt="Speech Therapy Process" width="1000"/>
 
-## Main Scoring Algorithim 
-<img src="Speech therapy steps png.png" alt="Speech Therapy Process" width="600"/>
+## Main Scoring Algorithm 
+<img src="Speech%20therapy%20steps%20png.png" alt="Speech Therapy Process" width="1000"/>
 
 ## Academic Report From Newest To Oldest
 - [View Final Project Report (PDF)](./Final%20Project%20Report.pdf)
 - [View Alpha Report (PDF)](./Alpha%20REPORT%20PDF%20FINAL.pdf)
 - [View Academic Paper (PDF)](./speech-therapy-proposal-moussa-tams-.pdf)
-
-
-
 
 For more information, feel free to contact us at [mousatams@hotmail.com].
