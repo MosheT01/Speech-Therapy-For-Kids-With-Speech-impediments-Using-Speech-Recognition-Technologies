@@ -1,7 +1,7 @@
 
 # Gamified Speech Therapy System
 
-![Speech Therapy Process](./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram%20UPDATED%2018082024.png)
+
 
 ## Overview
 
@@ -25,6 +25,13 @@ This project is a comprehensive, cloud-based application designed to assist chil
 ## Project Demo Video
 
 [![Project Demo On Youtube!](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://youtu.be/rUjPT7o85RQ)
+
+## Simplified Use case Diagram 
+
+<img src="./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram%20UPDATED%2018082024.png" alt="Speech Therapy Process" width="600"/>
+
+## Main Scoring Algorithim 
+
 
 ## Resources
 
