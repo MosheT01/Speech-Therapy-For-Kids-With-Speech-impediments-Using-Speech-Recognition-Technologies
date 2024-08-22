@@ -24,7 +24,7 @@ This project is a comprehensive, cloud-based application designed to assist chil
 
 ## Project Demo Video
 
-[![Project Demo On Youtube!](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://youtu.be/rUjPT7o85RQ)
+[![Project Demo On Youtube!](https://www.youtube.com/watch?v=LhAOmmmKtj4.jpg)](https://youtu.be/rUjPT7o85RQ)
 
 ## Simplified Use case Diagram 
 
