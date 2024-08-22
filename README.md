@@ -30,6 +30,12 @@ This project is a comprehensive, cloud-based application designed to assist chil
 
 [![Project Demo On Youtube!(5 Minutes)](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://www.youtube.com/watch?v=rUjPT7o85RQ&feature=youtu.be)
 
+## Project Poster
+
+<img src="./Poster%20PDF%20App%20Fina%20Project.jpeg" alt="Speech Therapy Process" width="1000"/>
+
+- [Download Poster in High Resolution (PDF)](./POSTER%20PDF.pdf)
+
 ## Simplified Use case Diagram 
 
 <img src="./Speech%20Therapy%20App%20Use%20Case%20UML%20-%20Use%20Case%20Diagram.jpeg" alt="Speech Therapy Process" width="600"/>
