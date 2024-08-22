@@ -22,9 +22,13 @@ This project is a comprehensive, cloud-based application designed to assist chil
 - **Firebase**: Used for real-time database management, authentication, and hosting.
 - **Gemini AI**: Integrated for delivering personalized feedback based on speech analysis.
 
-## Project Demo Video
+## Project Presentation Video
 
 [![Project Demo On Youtube!](https://img.youtube.com/vi/LhAOmmmKtj4/0.jpg)](https://www.youtube.com/watch?v=LhAOmmmKtj4)
+
+## Project DEMO Only
+
+[![Project Demo On Youtube!](https://img.youtube.com/vi/rUjPT7o85RQ/0.jpg)](https://www.youtube.com/watch?v=rUjPT7o85RQ&feature=youtu.be)
 
 ## Simplified Use case Diagram 
 
