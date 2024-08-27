@@ -48,6 +48,6 @@ This project is a comprehensive, cloud-based application designed to assist chil
 ## Academic Report From Newest To Oldest
 - [View Final Project Report (PDF)](https://github.com/MosheT01/Speech-Therapy-For-Kids-With-Speech-impediments-Using-Speech-Recognition-Technologies/blob/main/Final%20Report%20Final%20Project.pdf)
 - [View Alpha Report (PDF)](https://github.com/MosheT01/Speech-Therapy-For-Kids-With-Speech-impediments-Using-Speech-Recognition-Technologies/blob/main/Alpha%20REPORT%20PDF%20FINAL.pdf)
-- [View Academic Paper (PDF)]([./speech-therapy-proposal-moussa-tams-.pdf](https://github.com/MosheT01/Speech-Therapy-For-Kids-With-Speech-impediments-Using-Speech-Recognition-Technologies/blob/main/speech-therapy-proposal-moussa-tams-.pdf))
+- [View Academic Paper (PDF)](https://github.com/MosheT01/Speech-Therapy-For-Kids-With-Speech-impediments-Using-Speech-Recognition-Technologies/blob/main/speech-therapy-proposal-moussa-tams-.pdf)
 
 For more information, feel free to contact us at [mousatams@hotmail.com].
