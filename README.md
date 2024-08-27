@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises (built and managed by the child's therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic appro...
+This project is a comprehensive, cloud-based application designed to assist children with speech impediments. The system delivers gamified speech exercises (built and managed by the child's therapist) that utilize speech recognition, phonetic analysis, and Gemini AI to provide real-time, personalized feedback. The app is cross-platform, supporting iOS, Android, and Web, and offers detailed progress tracking with statistical reports that can be shared with parents and therapists, enabling a holistic approach...
 
 ## Features
 
